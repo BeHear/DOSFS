@@ -1,0 +1,12 @@
+#ifndef DANYA_HEAP_H
+#define DANYA_HEAP_H
+
+#include "types.h"
+
+void  heap_init(void);
+void* kmalloc(size_t size);
+void* kmalloc_aligned(size_t size);
+void  kfree(void* ptr);
+void* krealloc(void* ptr, size_t size);
+
+#endif
