@@ -1,5 +1,12 @@
 #include "string.h"
 
+/*
+ * String operations — original C implementations.
+ * Kept in C because the Rust compiler_builtins provides conflicting
+ * memset/memcpy symbols that cause infinite recursion when called
+ * via the Rust FFI bridge with --whole-archive.
+ */
+
 void* memset(void* dest, int c, size_t n) {
     uint8_t* d = (uint8_t*)dest;
     while (n--) *d++ = (uint8_t)c;

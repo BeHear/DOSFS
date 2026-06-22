@@ -1,0 +1,17 @@
+[package]
+name = "danyaos-kernel"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "danyaos_kernel"
+crate-type = ["staticlib"]
+
+[profile.dev]
+panic = "abort"
+opt-level = 2
+
+[profile.release]
+panic = "abort"
+opt-level = 2
+lto = true

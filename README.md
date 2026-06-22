@@ -1,4 +1,4 @@
-# DanyaOS v1.1.0
+# DanyaOS v1.2
 
 A hobby microkernel operating system written in C and x86 assembly.
 
@@ -12,6 +12,7 @@ A hobby microkernel operating system written in C and x86 assembly.
 - **System calls** via INT 0x80
 - **tmpfs** in-memory filesystem
 - **Interactive shell** with built-in commands
+- **TUI** (Text User Interface) with menu system
 
 ## Subsystems
 
@@ -31,15 +32,16 @@ A hobby microkernel operating system written in C and x86 assembly.
 | Syscalls | INT 0x80 syscall interface |
 | tmpfs | In-memory filesystem |
 | Shell | Interactive command shell |
+| TUI | Text user interface with menus |
 
 ## Shell Commands
 
 ```
 help              - show available commands
-clear             - clear screen
+clear/cls         - clear screen
 echo <msg>        - print message
 uname             - system info
-mem               - memory info
+mem/free          - memory info
 uptime            - timer ticks
 ps                - list processes
 create <name>     - create process
@@ -49,7 +51,20 @@ touch <file>      - create file
 write <file> <data> - write to file
 cat <file>        - read file
 rm <file>         - delete file
+cp <src> <dst>    - copy file
+mv <src> <dst>    - move/rename file
+hexdump <file>    - hex dump of file
 color <fg> <bg>   - set terminal colors
+date              - system uptime
+whoami            - current user
+pwd               - current directory
+calc <a> <op> <b> - calculator (+ - * / %%)
+history           - command history
+reset             - reset terminal
+beep              - PC speaker beep
+about             - about DanyaOS
+tuitest           - TUI demo
+shutdown          - shutdown
 reboot            - reboot
 ```
 
@@ -57,17 +72,15 @@ reboot            - reboot
 
 ### Prerequisites
 
-- `i686-elf-gcc` cross-compiler
+- `gcc` (system compiler with `-ffreestanding` support)
 - `nasm` assembler
 - `qemu-system-i386` (for testing)
 
-### Install cross-compiler (Debian/Ubuntu)
+### Install dependencies (Debian/Ubuntu)
 
 ```bash
-sudo apt install gcc-i686-linux-gnu nasm qemu-system-x86
+sudo apt install gcc nasm qemu-system-x86
 ```
-
-Or build from source: https://wiki.osdev.org/GCC_Cross-Compiler
 
 ### Build
 
@@ -81,6 +94,12 @@ make
 make run
 ```
 
+### Debug
+
+```bash
+make debug
+```
+
 ## Project Structure
 
 ```
@@ -90,12 +109,13 @@ DanyaOS/
 ├── src/
 │   ├── boot/           # Bootloader (MBR, protected mode)
 │   ├── kernel/         # Core kernel (GDT, IDT, ISR, kernel_main)
-│   ├── drivers/        # Device drivers (VGA, keyboard, timer)
+│   ├── drivers/        # Device drivers (VGA, keyboard, timer, serial)
 │   ├── memory/         # Memory management (PMM, VMM, heap)
 │   ├── process/        # Process management & scheduler, IPC
 │   ├── syscall/        # System call interface
 │   ├── fs/             # Filesystem (tmpfs)
 │   ├── shell/          # Interactive shell
+│   ├── tui/            # Text user interface
 │   ├── libc/           # Minimal C library
 │   └── include/        # Common headers (types, I/O)
 └── build/              # Build output

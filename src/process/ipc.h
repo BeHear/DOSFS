@@ -1,7 +1,7 @@
 #ifndef DANYA_IPC_H
 #define DANYA_IPC_H
 
-#include "types.h"
+#include "../include/types.h"
 
 #define IPC_MSG_SIZE 256
 #define IPC_MAX_MSGS 64

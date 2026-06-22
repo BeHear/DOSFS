@@ -151,7 +151,7 @@ static void show_file_info(void) {
         "Filesystem: tmpfs (RAM-based)",
         "Supports: create, read, write",
         "Supports: delete, copy, move",
-        "Max file size: 512 bytes"
+        "Max file size: 4096 bytes"
     };
     show_info_box(" File Manager ", lines, 4);
 }
@@ -161,7 +161,7 @@ static void show_system_info(void) {
     uint32_t sec = ticks / 100;
     UNUSED(sec);
     const char* lines[] = {
-        "DanyaOS v1.1.2 (Microkernel)",
+        "DanyaOS v1.2 (Microkernel)",
         "Architecture: i386 (x86)",
         "VGA text mode 80x25",
         "Timer ticks active"

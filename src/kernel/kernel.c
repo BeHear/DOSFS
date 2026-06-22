@@ -27,7 +27,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.1.2\n");
+    vga_puts("  Microkernel v1.2\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -35,103 +35,60 @@ static void print_banner(void) {
 
 static void init_subsystems(void) {
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+
     serial_puts("[init] GDT...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] GDT\n");
     gdt_init();
+    vga_puts("  [ OK ] GDT\n");
     serial_puts(" done\n");
 
     serial_puts("[init] IDT...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] IDT\n");
     idt_init();
+    vga_puts("  [ OK ] IDT\n");
     serial_puts(" done\n");
 
     serial_puts("[init] PMM...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] PMM (16MB)\n");
     pmm_init(16 * 1024 * 1024);
+    vga_puts("  [ OK ] PMM (16MB)\n");
     serial_puts(" done\n");
 
     serial_puts("[init] VMM...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] VMM\n");
     vmm_init();
+    vga_puts("  [ OK ] VMM\n");
     serial_puts(" done\n");
 
     serial_puts("[init] Heap...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] Heap\n");
     heap_init();
+    vga_puts("  [ OK ] Heap\n");
     serial_puts(" done\n");
 
     serial_puts("[init] Timer...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] Timer (100Hz)\n");
     timer_init(100);
+    vga_puts("  [ OK ] Timer (100Hz)\n");
     serial_puts(" done\n");
 
     serial_puts("[init] Keyboard...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] Keyboard\n");
     keyboard_init();
+    vga_puts("  [ OK ] Keyboard\n");
     serial_puts(" done\n");
 
     serial_puts("[init] Scheduler...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] Scheduler\n");
     scheduler_init();
+    vga_puts("  [ OK ] Scheduler\n");
     serial_puts(" done\n");
 
     serial_puts("[init] IPC...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] IPC\n");
     ipc_init();
+    vga_puts("  [ OK ] IPC\n");
     serial_puts(" done\n");
 
     serial_puts("[init] Syscalls...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] Syscalls\n");
     syscall_init();
+    vga_puts("  [ OK ] Syscalls\n");
     serial_puts(" done\n");
 
     serial_puts("[init] tmpfs...");
-    vga_puts("  [");
-    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
-    vga_puts(" OK ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("] tmpfs\n");
     tmpfs_init();
+    vga_puts("  [ OK ] tmpfs\n");
     serial_puts(" done\n");
 
     sti();
@@ -140,7 +97,7 @@ static void init_subsystems(void) {
 
 void kernel_main(void) {
     serial_init();
-    serial_puts("\n=== DanyaOS v1.1.2 ===\n");
+    serial_puts("\n=== DanyaOS v1.2 ===\n");
     serial_puts("[kernel] kernel_main entered\n");
 
     vga_init();

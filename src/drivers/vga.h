@@ -1,7 +1,7 @@
 #ifndef DANYA_VGA_H
 #define DANYA_VGA_H
 
-#include "types.h"
+#include "../include/types.h"
 
 enum vga_color {
     VGA_BLACK = 0,

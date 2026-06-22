@@ -1,7 +1,7 @@
 #ifndef DANYA_VMM_H
 #define DANYA_VMM_H
 
-#include "types.h"
+#include "../include/types.h"
 
 typedef struct {
     uint32_t present : 1;

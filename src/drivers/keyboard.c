@@ -34,6 +34,7 @@ static const char scancode_to_ascii[] = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
 };
 
 static const char scancode_to_shift[] = {
@@ -93,14 +94,11 @@ static void keyboard_handler(stack_state_t* state) {
 
     char c = shift_pressed ? scancode_to_shift[scancode] : scancode_to_ascii[scancode];
 
-    if (caps_lock && c >= 'a' && c <= 'z') {
-        c = c - 'a' + 'A';
-    } else if (caps_lock && c >= 'A' && c <= 'Z') {
-        c = c - 'A' + 'a';
-    } else if (shift_pressed && c >= 'a' && c <= 'z') {
-        c = c - 'a' + 'A';
-    } else if (shift_pressed && c >= 'A' && c <= 'Z') {
-        c = c - 'A' + 'a';
+    if (caps_lock) {
+        if (c >= 'a' && c <= 'z')
+            c = c - 'a' + 'A';
+        else if (c >= 'A' && c <= 'Z')
+            c = c - 'A' + 'a';
     }
 
     if (c) {

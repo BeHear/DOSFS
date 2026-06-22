@@ -1,7 +1,7 @@
 #ifndef DANYA_TMPFS_H
 #define DANYA_TMPFS_H
 
-#include "types.h"
+#include "../include/types.h"
 
 #define TMPFS_MAX_FILES 32
 #define TMPFS_NAME_LEN  64

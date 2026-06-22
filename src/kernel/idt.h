@@ -1,7 +1,7 @@
 #ifndef DANYA_IDT_H
 #define DANYA_IDT_H
 
-#include "types.h"
+#include "../include/types.h"
 
 typedef struct {
     uint16_t base_low;

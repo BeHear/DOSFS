@@ -58,15 +58,18 @@ void process_create(const char* name, void (*entry)(void)) {
 void process_exit(int code) {
     if (current_process < 0) return;
     process_t* proc = &processes[current_process];
-    proc->state = PROC_ZOMBIE;
+    proc->state = PROC_UNUSED;
     proc->exit_code = code;
     vga_printf("[scheduler] process '%s' exited (code=%d)\n", proc->name, code);
     process_count--;
 
     if (process_count == 0) {
         vga_puts("[scheduler] all processes exited, halting.\n");
+        current_process = -1;
         cli();
         hlt();
+    } else {
+        current_process = -1;
     }
 }
 

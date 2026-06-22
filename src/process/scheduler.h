@@ -1,7 +1,7 @@
 #ifndef DANYA_SCHEDULER_H
 #define DANYA_SCHEDULER_H
 
-#include "types.h"
+#include "../include/types.h"
 
 #define MAX_PROCESSES 32
 #define KERNEL_STACK_SIZE 4096

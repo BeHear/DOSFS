@@ -1,7 +1,7 @@
 #ifndef DANYA_STRING_H
 #define DANYA_STRING_H
 
-#include "types.h"
+#include "../include/types.h"
 
 void* memset(void* dest, int c, size_t n);
 void* memcpy(void* dest, const void* src, size_t n);

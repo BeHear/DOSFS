@@ -1,5 +1,6 @@
 # DanyaOS Microkernel - Makefile
 # Uses system GCC with -ffreestanding or i686-elf cross-compiler
+# Rust modules compiled via cargo for i686 bare-metal
 
 CC      = gcc
 AS      = nasm
@@ -18,6 +19,11 @@ LDFLAGS = -T linker.ld -nostdlib -m elf_i386
 
 BUILD   = build
 SRC     = src
+RUST_TARGET = target-specs/i686-unknown-none.json
+
+# Rust static library path (built by cargo)
+RUST_TARGET_NAME = $(notdir $(basename $(RUST_TARGET)))
+RUST_LIB = rust/target/$(RUST_TARGET_NAME)/release/libdanyaos_kernel.a
 
 OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/kernel.o \
@@ -38,10 +44,17 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/tui.o \
           $(BUILD)/string.o
 
-all: mkbuild $(BUILD)/danyaos.bin
+all: mkbuild rust-lib $(BUILD)/danyaos.bin
 
 mkbuild:
 	@mkdir -p $(BUILD)
+
+# Build the Rust kernel library
+rust-lib:
+	@echo "===== Building Rust kernel modules ====="
+	cd rust && cargo +nightly build -Zjson-target-spec -Zbuild-std=core \
+		--target ../$(RUST_TARGET) --release
+	@echo "===== Rust modules built: $(RUST_LIB) ====="
 
 $(BUILD)/danyaos.bin: $(BUILD)/boot.bin $(BUILD)/kernel.bin
 	cat $^ > $@
@@ -55,8 +68,8 @@ $(BUILD)/boot.bin: $(SRC)/boot/boot.asm
 $(BUILD)/kernel.bin: $(BUILD)/kernel.elf
 	objcopy -O binary $< $@
 
-$(BUILD)/kernel.elf: $(OBJS)
-	$(LD) $(LDFLAGS) $^ -o $@
+$(BUILD)/kernel.elf: $(OBJS) $(RUST_LIB)
+	$(LD) $(LDFLAGS) $(OBJS) $(RUST_LIB) -o $@
 
 $(BUILD)/kernel_entry.o: $(SRC)/boot/kernel_entry.asm
 	@mkdir -p $(BUILD)
@@ -109,5 +122,9 @@ debug: $(BUILD)/danyaos.bin
 
 clean:
 	rm -rf $(BUILD)
+	cd rust && cargo clean 2>/dev/null || true
 
-.PHONY: all run debug clean
+clean-c:
+	rm -rf $(BUILD)
+
+.PHONY: all run debug clean clean-c rust-lib mkbuild

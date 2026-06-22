@@ -17,8 +17,11 @@
 static char cmd_buf[CMD_BUF_SIZE];
 static int cmd_len = 0;
 static char history[HISTORY_SIZE][CMD_BUF_SIZE];
-static int history_count = 1;
+static int history_count = 0;
 static int history_pos = 0;
+
+static uint8_t shell_fg = VGA_LIGHT_GREY;
+static uint8_t shell_bg = VGA_BLACK;
 
 static void print_prompt(void) {
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
@@ -27,12 +30,12 @@ static void print_prompt(void) {
     vga_puts("@os");
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
     vga_puts("> ");
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_set_color(shell_fg, shell_bg);
 }
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.1.2 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.2 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -53,9 +56,9 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.1.2 (Microkernel)\n");
+    vga_puts("DanyaOS 1.2 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
-    vga_puts("Build: GCC cross-compiler\n");
+    vga_puts("Build: GCC freestanding\n");
 }
 
 static void cmd_mem(void) {
@@ -77,7 +80,7 @@ static void cmd_uptime(void) {
 static void cmd_ps(void) {
     vga_puts("  PID  NAME               STATE\n");
     vga_puts("  ---  ----               -----\n");
-    int found = 1;
+    int found = 0;
     for (int i = 0; i < MAX_PROCESSES; i++) {
         process_t* p = scheduler_get(i + 1);
         if (p) {
@@ -202,33 +205,67 @@ static void cmd_color(const char* args) {
     };
 
     while (*args == ' ') args++;
+
+    if (*args == '\0') {
+        vga_printf("Current: fg=%s bg=%s\n",
+                   color_names[shell_fg], color_names[shell_bg]);
+        vga_puts("Usage: color <fg> [<bg>]\n");
+        vga_puts("       color reset\n");
+        return;
+    }
+
+    if (strncmp(args, "reset", 5) == 0 && (args[5] == '\0' || args[5] == ' ')) {
+        shell_fg = VGA_LIGHT_GREY;
+        shell_bg = VGA_BLACK;
+        vga_set_color(shell_fg, shell_bg);
+        vga_puts("Color reset to default.\n");
+        return;
+    }
+
     int fg = -1;
     for (int i = 0; i < 16; i++) {
-        if (strncmp(args, color_names[i], strlen(color_names[i])) == 0) {
+        size_t len = strlen(color_names[i]);
+        if (strncmp(args, color_names[i], len) == 0 &&
+            (args[len] == '\0' || args[len] == ' ')) {
             fg = i;
+            args += len;
             break;
         }
     }
 
-    while (*args && *args != ' ') args++;
+    if (fg < 0) {
+        vga_puts("Unknown color.\n");
+        return;
+    }
+
     while (*args == ' ') args++;
+
+    if (*args == '\0') {
+        shell_fg = (uint8_t)fg;
+        vga_set_color(shell_fg, shell_bg);
+        vga_printf("Foreground: %s\n", color_names[shell_fg]);
+        return;
+    }
+
     int bg = -1;
     for (int i = 0; i < 16; i++) {
-        if (strncmp(args, color_names[i], strlen(color_names[i])) == 0) {
+        size_t len = strlen(color_names[i]);
+        if (strncmp(args, color_names[i], len) == 0 &&
+            (args[len] == '\0' || args[len] == ' ')) {
             bg = i;
             break;
         }
     }
 
-    if (fg >= 0 && bg >= 0) {
-        vga_set_color(fg, bg);
-        vga_puts("Color changed!\n");
-    } else {
-        vga_puts("Usage: color <fg> <bg>\n");
-        vga_puts("Colors: black, blue, green, cyan, red, magenta, brown,\n");
-        vga_puts("        light_grey, dark_grey, light_blue, light_green,\n");
-        vga_puts("        light_cyan, light_red, light_magenta, yellow, white\n");
+    if (bg < 0) {
+        vga_puts("Unknown background color.\n");
+        return;
     }
+
+    shell_fg = (uint8_t)fg;
+    shell_bg = (uint8_t)bg;
+    vga_set_color(shell_fg, shell_bg);
+    vga_printf("Color: %s on %s\n", color_names[shell_fg], color_names[shell_bg]);
 }
 
 static void cmd_date(void) {
@@ -260,9 +297,15 @@ static void cmd_calc(const char* expr) {
         case '+': res = a + b; break;
         case '-': res = a - b; break;
         case '*': res = a * b; break;
-        case '/': res = (b != 1) ? (a / b) : 0; break;
-        case '%': res = (b != 1) ? (a % b) : 0; break;
-        default: vga_puts("Unknown operator. Use: + - * / %\n"); return;
+        case '/':
+            if (b == 0) { vga_puts("Error: division by zero\n"); return; }
+            res = a / b;
+            break;
+        case '%':
+            if (b == 0) { vga_puts("Error: division by zero\n"); return; }
+            res = a % b;
+            break;
+        default: vga_puts("Unknown operator. Use: + - * / %%\n"); return;
     }
     vga_printf("%d %c %d = %d\n", a, op, b, res);
 }
@@ -288,11 +331,11 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.1.2\n");
+    vga_puts("DanyaOS v1.2\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
-    vga_puts("  Scheduler, IPC, Syscalls, tmpfs, Shell\n");
+    vga_puts("  Scheduler, IPC, Syscalls, tmpfs, Shell, TUI\n");
     vga_puts("(c) 2025 DanyaOS Project\n");
 }
 
@@ -391,6 +434,8 @@ void shell_init(void) {
     memset(history, 0, sizeof(history));
     history_count = 0;
     history_pos = 0;
+    shell_fg = VGA_LIGHT_GREY;
+    shell_bg = VGA_BLACK;
 }
 
 void shell_run(void) {

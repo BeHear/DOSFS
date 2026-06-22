@@ -1,7 +1,7 @@
 #ifndef DANYA_GDT_H
 #define DANYA_GDT_H
 
-#include "types.h"
+#include "../include/types.h"
 
 typedef struct {
     uint16_t limit_low;

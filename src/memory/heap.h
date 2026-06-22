@@ -1,7 +1,7 @@
 #ifndef DANYA_HEAP_H
 #define DANYA_HEAP_H
 
-#include "types.h"
+#include "../include/types.h"
 
 void  heap_init(void);
 void* kmalloc(size_t size);

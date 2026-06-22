@@ -21,7 +21,14 @@ void vga_init(void) {
     vga_row = 0;
     vga_col = 0;
     vga_color_attr = vga_entry_color(VGA_LIGHT_GREY, VGA_BLACK);
+
+    outb(0x3D4, 0x0C);
+    outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0D);
+    outb(0x3D5, 0x00);
+
     vga_clear();
+
     outb(0x3D4, 0x0A);
     outb(0x3D5, 0x20);
 }
@@ -32,6 +39,11 @@ void vga_clear(void) {
     }
     vga_row = 0;
     vga_col = 0;
+
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, 0x00);
 }
 
 void vga_set_color(uint8_t fg, uint8_t bg) {

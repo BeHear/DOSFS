@@ -1,4 +1,5 @@
 build/
+rust/target/
 *.o
 *.bin
 *.elf

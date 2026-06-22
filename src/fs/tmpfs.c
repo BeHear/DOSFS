@@ -28,6 +28,7 @@ int32_t tmpfs_create(const char* name) {
     for (int i = 0; i < TMPFS_MAX_FILES; i++) {
         if (!files[i].used) {
             strncpy(files[i].name, name, TMPFS_NAME_LEN - 1);
+            files[i].name[TMPFS_NAME_LEN - 1] = '\0';
             files[i].size = 0;
             files[i].used = true;
             memset(files[i].data, 0, TMPFS_DATA_SIZE);

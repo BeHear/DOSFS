@@ -111,12 +111,18 @@ void* kmalloc(size_t size) {
 }
 
 void* kmalloc_aligned(size_t size) {
-    UNUSED(size);
-    uint32_t page = (uint32_t)pmm_alloc_page();
-    if (!page) return NULL;
-    vmm_map_page(heap_current, page, 0x3);
-    heap_current += PAGE_SIZE;
-    return (void*)page;
+    if (size == 0) return NULL;
+    uint32_t pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    uint32_t base = heap_current;
+    for (uint32_t i = 0; i < pages; i++) {
+        void* page = pmm_alloc_page();
+        if (!page) return NULL;
+        vmm_map_page(heap_current, (uint32_t)page, 0x3);
+        memset((void*)heap_current, 0, PAGE_SIZE);
+        heap_current += PAGE_SIZE;
+    }
+    return (void*)base;
 }
 
 void kfree(void* ptr) {
