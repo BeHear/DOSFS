@@ -9,6 +9,7 @@
 #include "../process/ipc.h"
 #include "../fs/tmpfs.h"
 #include "../libc/string.h"
+#include "../tui/tui.h"
 
 #define CMD_BUF_SIZE 256
 #define HISTORY_SIZE 20
@@ -30,7 +31,7 @@ static void print_prompt(void) {
 }
 
 static void cmd_help(void) {
-    vga_puts("DanyaOS Shell v1.1\n\n");
+    vga_puts("DanyaOS Shell v1.1.2\n\n");
     vga_puts("Commands:\n");
     vga_puts("  help              - show this help\n");
     vga_puts("  clear / cls       - clear screen\n");
@@ -58,6 +59,7 @@ static void cmd_help(void) {
     vga_puts("  reset             - reset terminal\n");
     vga_puts("  beep              - PC speaker beep\n");
     vga_puts("  about             - about DanyaOS\n");
+    vga_puts("  tuitest           - test TUI demo\n");
     vga_puts("  shutdown          - shutdown (QEMU)\n");
     vga_puts("  reboot            - reboot (QEMU)\n");
 }
@@ -72,7 +74,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.1.1 (Microkernel)\n");
+    vga_puts("DanyaOS 1.1.2 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC cross-compiler\n");
 }
@@ -307,7 +309,7 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.1.1\n");
+    vga_puts("DanyaOS v1.1.2\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
@@ -396,6 +398,7 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "reset") == 0) cmd_reset();
     else if (strcmp(cmd, "beep") == 0) cmd_beep();
     else if (strcmp(cmd, "about") == 0) cmd_about();
+    else if (strcmp(cmd, "tuitest") == 0) tui_test();
     else {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_printf("Unknown command: %s\n", cmd);

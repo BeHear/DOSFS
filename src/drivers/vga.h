@@ -32,5 +32,7 @@ void vga_putchar(char c);
 void vga_puts(const char* s);
 void vga_printf(const char* fmt, ...);
 void vga_scroll(void);
+void vga_putchar_at(int x, int y, char c);
+void vga_puts_at(int x, int y, const char* s);
 
 #endif

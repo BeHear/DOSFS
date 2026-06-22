@@ -35,6 +35,7 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/syscall.o \
           $(BUILD)/tmpfs.o \
           $(BUILD)/shell.o \
+          $(BUILD)/tui.o \
           $(BUILD)/string.o
 
 all: mkbuild $(BUILD)/danyaos.bin
@@ -89,6 +90,10 @@ $(BUILD)/%.o: $(SRC)/fs/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: $(SRC)/shell/%.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: $(SRC)/tui/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 

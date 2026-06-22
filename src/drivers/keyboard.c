@@ -4,6 +4,8 @@
 
 static volatile char key_buffer;
 static volatile bool key_available = false;
+static volatile uint8_t scancode_buffer = 0;
+static volatile bool scancode_available = false;
 
 static const char scancode_to_ascii[] = {
     0, 0, '1', '2', '3', '4', '5', '6',
@@ -16,6 +18,14 @@ static const char scancode_to_ascii[] = {
     0, ' ', 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, '-', 0, 0, 0, '+', 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
@@ -37,6 +47,14 @@ static const char scancode_to_shift[] = {
     0, ' ', 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, '-', 0, 0, 0, '+', 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
@@ -69,6 +87,9 @@ static void keyboard_handler(stack_state_t* state) {
     }
 
     if (scancode & 0x80) return;
+
+    scancode_buffer = scancode;
+    scancode_available = true;
 
     char c = shift_pressed ? scancode_to_shift[scancode] : scancode_to_ascii[scancode];
 
@@ -106,4 +127,13 @@ char keyboard_getchar(void) {
 
 bool keyboard_has_key(void) {
     return key_available;
+}
+
+uint8_t keyboard_get_scancode(void) {
+    while (!scancode_available) hlt();
+    cli();
+    uint8_t sc = scancode_buffer;
+    scancode_available = false;
+    sti();
+    return sc;
 }

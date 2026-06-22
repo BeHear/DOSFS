@@ -86,9 +86,77 @@ void vga_putchar(char c) {
     outb(0x3D5, (uint8_t)((cursor >> 8) & 0xFF));
 }
 
+void vga_putchar_at(int x, int y, char c) {
+    if (x < 0 || x >= VGA_WIDTH || y < 0 || y >= VGA_HEIGHT) return;
+    vga_buffer[y * VGA_WIDTH + x] = vga_entry(c, vga_color_attr);
+}
+
+void vga_puts_at(int x, int y, const char* s) {
+    while (*s) {
+        if (x >= VGA_WIDTH) break;
+        vga_putchar_at(x, y, *s++);
+        x++;
+    }
+}
+
 void vga_puts(const char* s) {
     while (*s) {
         vga_putchar(*s++);
+    }
+}
+
+static void print_fmt_int(int val, int width, int left_align, char pad_char) {
+    char buf[32];
+    itoa(val, buf, 10);
+    int len = strlen(buf);
+    int pad = (width > len) ? width - len : 0;
+    if (!left_align) {
+        while (pad-- > 0) vga_putchar(pad_char);
+    }
+    vga_puts(buf);
+    if (left_align) {
+        while (pad-- > 0) vga_putchar(' ');
+    }
+}
+
+static void print_fmt_uint(uint32_t val, int width, int left_align, char pad_char) {
+    char buf[32];
+    uitoa(val, buf, 10);
+    int len = strlen(buf);
+    int pad = (width > len) ? width - len : 0;
+    if (!left_align) {
+        while (pad-- > 0) vga_putchar(pad_char);
+    }
+    vga_puts(buf);
+    if (left_align) {
+        while (pad-- > 0) vga_putchar(' ');
+    }
+}
+
+static void print_fmt_hex(uint32_t val, int width, int left_align, char pad_char) {
+    char buf[32];
+    uitoa(val, buf, 16);
+    int len = strlen(buf);
+    int pad = (width > len) ? width - len : 0;
+    if (!left_align) {
+        while (pad-- > 0) vga_putchar(pad_char);
+    }
+    vga_puts(buf);
+    if (left_align) {
+        while (pad-- > 0) vga_putchar(' ');
+    }
+}
+
+static void print_fmt_str(const char* s, int width, int left_align) {
+    if (!s) s = "(null)";
+    int len = strlen(s);
+    int pad = (width > len) ? width - len : 0;
+    if (!left_align) {
+        while (pad-- > 0) vga_putchar(' ');
+    }
+    vga_puts(s);
+    if (left_align) {
+        while (pad-- > 0) vga_putchar(' ');
     }
 }
 
@@ -96,41 +164,53 @@ void vga_printf(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
-    char buf[32];
-
     while (*fmt) {
         if (*fmt == '%') {
             fmt++;
+            if (*fmt == '\0') break;
+
+            int left_align = 0;
+            char pad_char = ' ';
+            int width = 0;
+
+            if (*fmt == '-') {
+                left_align = 1;
+                fmt++;
+            }
+            if (*fmt == '0') {
+                pad_char = '0';
+                fmt++;
+            }
+            while (*fmt >= '0' && *fmt <= '9') {
+                width = width * 10 + (*fmt - '0');
+                fmt++;
+            }
+
             switch (*fmt) {
                 case 's': {
                     const char* s = va_arg(args, const char*);
-                    if (!s) s = "(null)";
-                    vga_puts(s);
+                    print_fmt_str(s, width, left_align);
                     break;
                 }
                 case 'd': {
                     int val = va_arg(args, int);
-                    itoa(val, buf, 10);
-                    vga_puts(buf);
+                    print_fmt_int(val, width, left_align, pad_char);
                     break;
                 }
                 case 'u': {
                     uint32_t val = va_arg(args, uint32_t);
-                    uitoa(val, buf, 10);
-                    vga_puts(buf);
+                    print_fmt_uint(val, width, left_align, pad_char);
                     break;
                 }
                 case 'x': {
                     uint32_t val = va_arg(args, uint32_t);
-                    uitoa(val, buf, 16);
-                    vga_puts(buf);
+                    print_fmt_hex(val, width, left_align, pad_char);
                     break;
                 }
                 case 'p': {
                     uint32_t val = va_arg(args, uint32_t);
                     vga_puts("0x");
-                    uitoa(val, buf, 16);
-                    vga_puts(buf);
+                    print_fmt_hex(val, width, left_align, pad_char);
                     break;
                 }
                 case 'c': {
