@@ -7,7 +7,7 @@ static volatile bool key_available = false;
 
 static const char scancode_to_ascii[] = {
     0, 0, '1', '2', '3', '4', '5', '6',
-    '7', '8', '9', '0', '-', '=', '\b', 0,
+    '7', '8', '9', '0', '-', '=', '\b', '\t',
     'q', 'w', 'e', 'r', 't', 'y', 'u', 'i',
     'o', 'p', '[', ']', '\n', 0, 'a', 's',
     'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',
@@ -48,6 +48,7 @@ static const char scancode_to_shift[] = {
 };
 
 static uint8_t shift_pressed = 0;
+static uint8_t caps_lock = 0;
 
 static void keyboard_handler(stack_state_t* state) {
     UNUSED(state);
@@ -62,9 +63,24 @@ static void keyboard_handler(stack_state_t* state) {
         return;
     }
 
+    if (scancode == 0x3A) {
+        caps_lock = !caps_lock;
+        return;
+    }
+
     if (scancode & 0x80) return;
 
     char c = shift_pressed ? scancode_to_shift[scancode] : scancode_to_ascii[scancode];
+
+    if (caps_lock && c >= 'a' && c <= 'z') {
+        c = c - 'a' + 'A';
+    } else if (caps_lock && c >= 'A' && c <= 'Z') {
+        c = c - 'A' + 'a';
+    } else if (shift_pressed && c >= 'a' && c <= 'z') {
+        c = c - 'a' + 'A';
+    } else if (shift_pressed && c >= 'A' && c <= 'Z') {
+        c = c - 'A' + 'a';
+    }
 
     if (c) {
         key_buffer = c;
@@ -81,8 +97,11 @@ void keyboard_init(void) {
 
 char keyboard_getchar(void) {
     while (!key_available) hlt();
+    cli();
+    char c = key_buffer;
     key_available = false;
-    return key_buffer;
+    sti();
+    return c;
 }
 
 bool keyboard_has_key(void) {

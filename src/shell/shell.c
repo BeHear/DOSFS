@@ -26,24 +26,24 @@ static void print_prompt(void) {
 }
 
 static void cmd_help(void) {
-    vga_puts("DanyaOS Shell v1.0\n\n");
+    vga_puts("DanyaOS Shell v1.1\n\n");
     vga_puts("Commands:\n");
-    vga_puts("  help        - show this help\n");
-    vga_puts("  clear       - clear screen\n");
-    vga_puts("  echo <msg>  - print message\n");
-    vga_puts("  uname       - system info\n");
-    vga_puts("  mem         - memory info\n");
-    vga_puts("  uptime      - timer ticks\n");
-    vga_puts("  ps          - list processes\n");
-    vga_puts("  create <n>  - create process\n");
-    vga_puts("  ipc         - test IPC\n");
-    vga_puts("  ls          - list files\n");
-    vga_puts("  touch <f>   - create file\n");
-    vga_puts("  write <f> <data> - write file\n");
-    vga_puts("  cat <f>     - read file\n");
-    vga_puts("  rm <f>      - delete file\n");
-    vga_puts("  color <fg> <bg> - set colors\n");
-    vga_puts("  reboot      - reboot (QEMU)\n");
+    vga_puts("  help              - show this help\n");
+    vga_puts("  clear / cls       - clear screen\n");
+    vga_puts("  echo <msg>        - print message\n");
+    vga_puts("  uname             - system info\n");
+    vga_puts("  mem / free        - memory info\n");
+    vga_puts("  uptime            - timer ticks\n");
+    vga_puts("  ps                - list processes\n");
+    vga_puts("  create <name>     - create process\n");
+    vga_puts("  ipc               - test IPC\n");
+    vga_puts("  ls                - list files\n");
+    vga_puts("  touch <file>      - create file\n");
+    vga_puts("  write <f> <data>  - write to file\n");
+    vga_puts("  cat <file>        - read file\n");
+    vga_puts("  rm <file>         - delete file\n");
+    vga_puts("  color <fg> <bg>   - set colors\n");
+    vga_puts("  reboot            - reboot (QEMU)\n");
 }
 
 static void cmd_clear(void) {
@@ -56,7 +56,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.0.0 (Microkernel)\n");
+    vga_puts("DanyaOS 1.1.0 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC cross-compiler\n");
 }
@@ -80,9 +80,11 @@ static void cmd_uptime(void) {
 static void cmd_ps(void) {
     vga_puts("  PID  NAME               STATE\n");
     vga_puts("  ---  ----               -----\n");
+    int found = 0;
     for (int i = 0; i < MAX_PROCESSES; i++) {
         process_t* p = scheduler_get(i + 1);
         if (p) {
+            found = 1;
             const char* state = "???";
             switch (p->state) {
                 case PROC_READY:   state = "READY"; break;
@@ -94,6 +96,7 @@ static void cmd_ps(void) {
             vga_printf("  %-4d %-18s %s\n", p->pid, p->name, state);
         }
     }
+    if (!found) vga_puts("  (no processes)\n");
 }
 
 static void cmd_touch(const char* name) {
@@ -182,7 +185,6 @@ static void cmd_create_process(const char* name) {
     while (*name == ' ') name++;
     if (*name == '\0') { vga_puts("Usage: create <name>\n"); return; }
     process_create(name, (void(*)(void))0);
-    vga_printf("Process '%s' created\n", name);
 }
 
 static void cmd_ipc_test(void) {

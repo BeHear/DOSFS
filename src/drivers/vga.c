@@ -62,6 +62,10 @@ void vga_putchar(char c) {
         if (vga_col > 0) {
             vga_col--;
             vga_buffer[vga_row * VGA_WIDTH + vga_col] = vga_entry(' ', vga_color_attr);
+        } else if (vga_row > 0) {
+            vga_row--;
+            vga_col = VGA_WIDTH - 1;
+            vga_buffer[vga_row * VGA_WIDTH + vga_col] = vga_entry(' ', vga_color_attr);
         }
     } else {
         vga_buffer[vga_row * VGA_WIDTH + vga_col] = vga_entry(c, vga_color_attr);

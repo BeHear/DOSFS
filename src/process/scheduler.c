@@ -75,25 +75,23 @@ void scheduler_tick(void) {
         processes[current_process].time_slices++;
     }
 
-    int next = current_process;
-    for (int i = 1; i <= MAX_PROCESSES; i++) {
-        int idx = (current_process + i) % MAX_PROCESSES;
+    int next = -1;
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        int idx = (current_process + 1 + i) % MAX_PROCESSES;
         if (processes[idx].state == PROC_READY || processes[idx].state == PROC_RUNNING) {
             next = idx;
             break;
         }
     }
 
-    if (next == current_process) return;
+    if (next < 0 || next == current_process) return;
 
     if (current_process >= 0 && processes[current_process].state == PROC_RUNNING) {
         processes[current_process].state = PROC_READY;
     }
 
-    if (next >= 0) {
-        processes[next].state = PROC_RUNNING;
-        current_process = next;
-    }
+    processes[next].state = PROC_RUNNING;
+    current_process = next;
 }
 
 void process_yield(void) {

@@ -111,6 +111,7 @@ void* kmalloc(size_t size) {
 }
 
 void* kmalloc_aligned(size_t size) {
+    UNUSED(size);
     uint32_t page = (uint32_t)pmm_alloc_page();
     if (!page) return NULL;
     vmm_map_page(heap_current, page, 0x3);
