@@ -31,6 +31,7 @@ static void print_prompt(void) {
 }
 
 static void cmd_help(void) {
+    vga_clear();
     vga_puts("DanyaOS Shell v1.1.2 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
