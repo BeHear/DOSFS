@@ -2,6 +2,7 @@
 #include "../drivers/vga.h"
 #include "../drivers/keyboard.h"
 #include "../drivers/timer.h"
+#include "../drivers/cpuinfo.h"
 #include "../include/io.h"
 #include "../memory/pmm.h"
 #include "../memory/heap.h"
@@ -35,7 +36,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.2 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.2.1 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -43,7 +44,7 @@ static void cmd_help(void) {
     vga_puts(" hexdump     color       date        whoami\n");
     vga_puts(" pwd         calc        history     reset\n");
     vga_puts(" beep        about       tuitest     shutdown\n");
-    vga_puts(" reboot\n");
+    vga_puts(" reboot      cpuinfo\n");
 }
 
 static void cmd_clear(void) {
@@ -56,7 +57,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.2 (Microkernel)\n");
+    vga_puts("DanyaOS 1.2.1 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC freestanding\n");
 }
@@ -331,12 +332,48 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.2\n");
+    vga_puts("DanyaOS v1.2.1\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
     vga_puts("  Scheduler, IPC, Syscalls, tmpfs, Shell, TUI\n");
     vga_puts("(c) 2025 DanyaOS Project\n");
+}
+
+static void cmd_cpuinfo(void) {
+    cpu_info_t info;
+    cpuinfo_detect(&info);
+
+    vga_printf("Vendor:   %s\n", info.vendor);
+    if (info.brand[0])
+        vga_printf("Brand:    %s\n", info.brand);
+
+    /* Compute display family/model (Intel manual Vol 2A Table 3-1) */
+    uint32_t disp_family = info.family + info.ext_family;
+    uint32_t disp_model  = info.model;
+    if (info.family == 6 || info.family == 15)
+        disp_model = info.model + (info.ext_model << 4);
+    if (info.family == 15)
+        disp_family = info.family + info.ext_family;
+
+    vga_printf("Family:   %u  Model: %u  Stepping: %u\n",
+               disp_family, disp_model, info.stepping);
+
+    /* Feature flags - selected highlights */
+    vga_puts("Features: ");
+    if (info.features_edx & (1 << 4))  vga_puts("TSC ");
+    if (info.features_edx & (1 << 5))  vga_puts("MSR ");
+    if (info.features_edx & (1 << 8))  vga_puts("CX8 ");
+    if (info.features_edx & (1 << 15)) vga_puts("CMOV ");
+    if (info.features_edx & (1 << 23)) vga_puts("MMX ");
+    if (info.features_edx & (1 << 25)) vga_puts("SSE ");
+    if (info.features_edx & (1 << 26)) vga_puts("SSE2 ");
+    if (info.features_ecx & (1 << 0))  vga_puts("SSE3 ");
+    if (info.features_ecx & (1 << 9))  vga_puts("SSSE3 ");
+    if (info.features_ecx & (1 << 19)) vga_puts("SSE4.1 ");
+    if (info.features_ecx & (1 << 20)) vga_puts("SSE4.2 ");
+    if (info.features_edx & (1 << 29)) vga_puts("TM ");
+    vga_putchar('\n');
 }
 
 static void cmd_shutdown(void) {
@@ -349,19 +386,12 @@ static void cmd_shutdown(void) {
 static void cmd_create_process(const char* name) {
     while (*name == ' ') name++;
     if (*name == '\0') { vga_puts("Usage: create <name>\n"); return; }
-    process_create(name, (void(*)(void))0);
+    vga_puts("Process creation requires a valid entry point.\n");
 }
 
 static void cmd_ipc_test(void) {
     ipc_send(1, "Hello from shell!", 17);
-    char buf[256];
-    int len = ipc_receive(0, buf, 255);
-    if (len > 0) {
-        buf[len] = '\0';
-        vga_printf("IPC received: %s\n", buf);
-    } else {
-        vga_puts("No IPC messages\n");
-    }
+    vga_puts("IPC test: message queued (pid 1).\n");
 }
 
 static void cmd_reboot(void) {
@@ -421,6 +451,7 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "beep") == 0) cmd_beep();
     else if (strcmp(cmd, "about") == 0) cmd_about();
     else if (strcmp(cmd, "tuitest") == 0) tui_test();
+    else if (strcmp(cmd, "cpuinfo") == 0) cmd_cpuinfo();
     else {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_printf("Unknown command: %s\n", cmd);

@@ -1,4 +1,4 @@
-# DanyaOS v1.2
+# DanyaOS v1.2.1
 
 A hobby microkernel operating system written in C and x86 assembly.
 
@@ -33,6 +33,7 @@ A hobby microkernel operating system written in C and x86 assembly.
 | tmpfs | In-memory filesystem |
 | Shell | Interactive command shell |
 | TUI | Text user interface with menus |
+| CPUID | CPU identification and feature detection |
 
 ## Shell Commands
 
@@ -66,6 +67,7 @@ about             - about DanyaOS
 tuitest           - TUI demo
 shutdown          - shutdown
 reboot            - reboot
+cpuinfo           - CPU information (vendor, brand, features)
 ```
 
 ## Building

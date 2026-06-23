@@ -41,6 +41,7 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/syscall.o \
           $(BUILD)/tmpfs.o \
           $(BUILD)/shell.o \
+          $(BUILD)/cpuinfo.o \
           $(BUILD)/tui.o \
           $(BUILD)/string.o
 
