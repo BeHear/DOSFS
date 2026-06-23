@@ -1,14 +1,9 @@
 # DanyaOS Microkernel - Makefile
-# Uses system GCC with -ffreestanding or i686-elf cross-compiler
-# Rust modules compiled via cargo for i686 bare-metal
+# GRUB/Multiboot-based build for real hardware boot
 
 CC      = gcc
 AS      = nasm
 LD      = ld
-
-# Uncomment below for cross-compiler if available:
-# CC  = i686-elf-gcc
-# LD  = i686-elf-ld
 
 CFLAGS  = -std=gnu99 -ffreestanding -O2 -Wall -Wextra \
           -Isrc/include -Isrc \
@@ -21,7 +16,6 @@ BUILD   = build
 SRC     = src
 RUST_TARGET = target-specs/i686-unknown-none.json
 
-# Rust static library path (built by cargo)
 RUST_TARGET_NAME = $(notdir $(basename $(RUST_TARGET)))
 RUST_LIB = rust/target/$(RUST_TARGET_NAME)/release/libdanyaos_kernel.a
 
@@ -40,37 +34,39 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/ipc.o \
           $(BUILD)/syscall.o \
           $(BUILD)/tmpfs.o \
+          $(BUILD)/fat16.o \
+          $(BUILD)/ata.o \
+          $(BUILD)/acpi.o \
           $(BUILD)/shell.o \
           $(BUILD)/cpuinfo.o \
           $(BUILD)/tui.o \
           $(BUILD)/string.o
 
-all: mkbuild rust-lib $(BUILD)/danyaos.bin
+all: mkbuild rust-lib $(BUILD)/danyaos.iso
+
+kernel: mkbuild rust-lib $(BUILD)/kernel.elf
 
 mkbuild:
 	@mkdir -p $(BUILD)
 
-# Build the Rust kernel library
 rust-lib:
 	@echo "===== Building Rust kernel modules ====="
 	cd rust && cargo +nightly build -Zjson-target-spec -Zbuild-std=core \
 		--target ../$(RUST_TARGET) --release
-	@echo "===== Rust modules built: $(RUST_LIB) ====="
-
-$(BUILD)/danyaos.bin: $(BUILD)/boot.bin $(BUILD)/kernel.bin
-	cat $^ > $@
-	truncate -s 1440k $@
-	@echo "===== DanyaOS kernel built: $@ ====="
-	@echo "Run with: qemu-system-i386 -drive format=raw,file=$(BUILD)/danyaos.bin"
-
-$(BUILD)/boot.bin: $(SRC)/boot/boot.asm
-	$(AS) -f bin $< -o $@
-
-$(BUILD)/kernel.bin: $(BUILD)/kernel.elf
-	objcopy -O binary $< $@
+	@echo "===== Rust modules built ====="
 
 $(BUILD)/kernel.elf: $(OBJS) $(RUST_LIB)
 	$(LD) $(LDFLAGS) $(OBJS) $(RUST_LIB) -o $@
+	@echo "===== Kernel ELF built: $@ ====="
+
+$(BUILD)/danyaos.iso: $(BUILD)/kernel.elf
+	@mkdir -p $(BUILD)/isodir/boot/grub
+	cp $(BUILD)/kernel.elf $(BUILD)/isodir/boot/danyaos.elf
+	cp grub.cfg $(BUILD)/isodir/boot/grub/grub.cfg
+	grub-mkrescue -o $(BUILD)/danyaos.iso $(BUILD)/isodir 2>/dev/null
+	@echo "===== ISO built: $@ ====="
+	@echo "Boot in QEMU: qemu-system-i386 -cdrom $(BUILD)/danyaos.iso"
+	@echo "Write to USB:  sudo dd if=$(BUILD)/danyaos.iso of=/dev/sdX bs=4M status=progress"
 
 $(BUILD)/kernel_entry.o: $(SRC)/boot/kernel_entry.asm
 	@mkdir -p $(BUILD)
@@ -115,11 +111,14 @@ $(BUILD)/%.o: $(SRC)/libc/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-run: $(BUILD)/danyaos.bin
-	qemu-system-i386 -drive file=$(BUILD)/danyaos.bin,if=floppy,format=raw,index=0 -boot a
+qemu: $(BUILD)/danyaos.iso
+	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M
 
-debug: $(BUILD)/danyaos.bin
-	qemu-system-i386 -drive file=$(BUILD)/danyaos.bin,if=floppy,format=raw,index=0 -boot a -s -S &
+qemu-usb: $(BUILD)/kernel.elf
+	qemu-system-i386 -kernel $(BUILD)/kernel.elf -m 256M
+
+debug: $(BUILD)/danyaos.iso
+	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M -s -S &
 
 clean:
 	rm -rf $(BUILD)
@@ -128,4 +127,4 @@ clean:
 clean-c:
 	rm -rf $(BUILD)
 
-.PHONY: all run debug clean clean-c rust-lib mkbuild
+.PHONY: all kernel qemu qemu-usb debug clean clean-c rust-lib mkbuild

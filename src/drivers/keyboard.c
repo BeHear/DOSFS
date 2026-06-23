@@ -68,10 +68,16 @@ static const char scancode_to_shift[] = {
 
 static uint8_t shift_pressed = 0;
 static uint8_t caps_lock = 0;
+static uint8_t extended_prefix = 0;
 
 static void keyboard_handler(stack_state_t* state) {
     UNUSED(state);
     uint8_t scancode = inb(0x60);
+
+    if (scancode == 0xE0) {
+        extended_prefix = 1;
+        return;
+    }
 
     if (scancode == 0x2A || scancode == 0x36) {
         shift_pressed = 1;
@@ -88,6 +94,13 @@ static void keyboard_handler(stack_state_t* state) {
     }
 
     if (scancode & 0x80) return;
+
+    if (extended_prefix) {
+        extended_prefix = 0;
+        scancode_buffer = scancode;
+        scancode_available = true;
+        return;
+    }
 
     scancode_buffer = scancode;
     scancode_available = true;

@@ -18,6 +18,7 @@ static void sys_write(stack_state_t* state) {
 static void sys_read(stack_state_t* state) {
     char* buf = (char*)state->ebx;
     uint32_t max_len = state->ecx;
+    if (max_len == 0) { state->eax = 0; return; }
     uint32_t i = 0;
 
     while (i < max_len - 1) {

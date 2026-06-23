@@ -67,13 +67,16 @@ void heap_init(void) {
     heap_current = HEAP_START;
     heap_head = NULL;
 
-    for (uint32_t addr = HEAP_START; addr < HEAP_END; addr += PAGE_SIZE) {
+    uint32_t heap_size = 256 * 1024;
+    uint32_t pages_needed = (heap_size + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    for (uint32_t i = 0; i < pages_needed; i++) {
         void* page = pmm_alloc_page();
         if (!page) break;
-        vmm_map_page(addr, (uint32_t)page, 0x3);
+        vmm_map_page(heap_current, (uint32_t)page, 0x3);
+        heap_current += PAGE_SIZE;
     }
 
-    uint32_t heap_size = 256 * 1024;
     block_t* first = (block_t*)HEAP_START;
     first->size = heap_size - BLOCK_SIZE;
     first->free = true;

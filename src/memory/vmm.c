@@ -53,6 +53,26 @@ void vmm_init(void) {
         kernel_directory[i].table   = (uint32_t)table >> 12;
     }
 
+    // Map BIOS ROM area (0xFFF00000-0xFFFFFFFF) for ACPI tables
+    {
+        uint32_t dir_idx = 0xFFC00000 >> 22;
+        page_table_entry_t* table = (page_table_entry_t*)pmm_alloc_page();
+        if (table) {
+            memset(table, 0, sizeof(page_table_entry_t) * PAGE_TABLE_ENTRIES);
+            for (uint32_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+                uint32_t phys = 0xFFC00000 + j * PAGE_SIZE;
+                table[j].present = 1;
+                table[j].rw      = 1;
+                table[j].user    = 0;
+                table[j].frame   = phys >> 12;
+            }
+            kernel_directory[dir_idx].present = 1;
+            kernel_directory[dir_idx].rw      = 1;
+            kernel_directory[dir_idx].user    = 0;
+            kernel_directory[dir_idx].table   = (uint32_t)table >> 12;
+        }
+    }
+
     current_directory = kernel_directory;
 
     asm volatile("mov %0, %%cr3" : : "r"(kernel_directory));

@@ -3,12 +3,15 @@
 #include "../drivers/keyboard.h"
 #include "../drivers/timer.h"
 #include "../drivers/cpuinfo.h"
+#include "../drivers/ata.h"
+#include "../drivers/acpi.h"
 #include "../include/io.h"
 #include "../memory/pmm.h"
 #include "../memory/heap.h"
 #include "../process/scheduler.h"
 #include "../process/ipc.h"
 #include "../fs/tmpfs.h"
+#include "../fs/fat16.h"
 #include "../libc/string.h"
 #include "../tui/tui.h"
 
@@ -36,7 +39,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.2.1 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.3 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -44,7 +47,8 @@ static void cmd_help(void) {
     vga_puts(" hexdump     color       date        whoami\n");
     vga_puts(" pwd         calc        history     reset\n");
     vga_puts(" beep        about       tuitest     shutdown\n");
-    vga_puts(" reboot      cpuinfo\n");
+    vga_puts(" reboot      cpuinfo     disk        mount\n");
+    vga_puts(" fdisk       fatls       fatread     fatwrite\n");
 }
 
 static void cmd_clear(void) {
@@ -57,7 +61,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.2.1 (Microkernel)\n");
+    vga_puts("DanyaOS 1.3 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC freestanding\n");
 }
@@ -332,11 +336,12 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.2.1\n");
+    vga_puts("DanyaOS v1.3\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
-    vga_puts("  Scheduler, IPC, Syscalls, tmpfs, Shell, TUI\n");
+    vga_puts("  Scheduler, IPC, Syscalls, tmpfs,\n");
+    vga_puts("  FAT16, ATA/IDE, ACPI, Shell, TUI\n");
     vga_puts("(c) 2025 DanyaOS Project\n");
 }
 
@@ -348,7 +353,6 @@ static void cmd_cpuinfo(void) {
     if (info.brand[0])
         vga_printf("Brand:    %s\n", info.brand);
 
-    /* Compute display family/model (Intel manual Vol 2A Table 3-1) */
     uint32_t disp_family = info.family + info.ext_family;
     uint32_t disp_model  = info.model;
     if (info.family == 6 || info.family == 15)
@@ -359,7 +363,6 @@ static void cmd_cpuinfo(void) {
     vga_printf("Family:   %u  Model: %u  Stepping: %u\n",
                disp_family, disp_model, info.stepping);
 
-    /* Feature flags - selected highlights */
     vga_puts("Features: ");
     if (info.features_edx & (1 << 4))  vga_puts("TSC ");
     if (info.features_edx & (1 << 5))  vga_puts("MSR ");
@@ -378,9 +381,55 @@ static void cmd_cpuinfo(void) {
 
 static void cmd_shutdown(void) {
     vga_puts("Shutting down...\n");
-    outb(1, 0x64);
+    acpi_shutdown();
     cli();
     hlt();
+}
+
+static void cmd_disk(void) {
+    ata_device_t* dev = ata_get_device();
+    if (!dev) {
+        vga_puts("No ATA devices found\n");
+        return;
+    }
+    vga_printf("Drive: %s\n", dev->model);
+    vga_printf("Size:  %u MB (%u sectors)\n",
+               (dev->max_lba * 512) / (1024 * 1024),
+               dev->max_lba);
+}
+
+static void cmd_fatls(void) {
+    fat16_list_files();
+}
+
+static void cmd_fatread(const char* name) {
+    while (*name == ' ') name++;
+    if (*name == '\0') { vga_puts("Usage: fatread <filename>\n"); return; }
+
+    char buf[4096];
+    int len = fat16_read_file(name, buf, 4095);
+    if (len < 0) { vga_printf("File not found: %s\n", name); return; }
+    buf[len] = '\0';
+    vga_puts(buf);
+    vga_putchar('\n');
+}
+
+static void cmd_fatwrite(const char* args) {
+    while (*args == ' ') args++;
+    char name[64];
+    int i = 0;
+    while (*args && *args != ' ' && i < 63) name[i++] = *args++;
+    name[i] = '\0';
+    while (*args == ' ') args++;
+    if (i == 0 || *args == '\0') {
+        vga_puts("Usage: fatwrite <filename> <data>\n");
+        return;
+    }
+    int written = fat16_write_file(name, args, strlen(args));
+    if (written >= 0)
+        vga_printf("Wrote %d bytes to %s\n", written, name);
+    else
+        vga_puts("Error writing file\n");
 }
 
 static void cmd_create_process(const char* name) {
@@ -396,10 +445,7 @@ static void cmd_ipc_test(void) {
 
 static void cmd_reboot(void) {
     vga_puts("Rebooting...\n");
-    uint8_t good = 0x02;
-    while (good & 0x02)
-        good = inb(0x64);
-    outb(0x64, 0xFE);
+    acpi_reboot();
     cli();
     hlt();
 }
@@ -452,6 +498,10 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "about") == 0) cmd_about();
     else if (strcmp(cmd, "tuitest") == 0) tui_test();
     else if (strcmp(cmd, "cpuinfo") == 0) cmd_cpuinfo();
+    else if (strcmp(cmd, "disk") == 0) cmd_disk();
+    else if (strcmp(cmd, "fatls") == 0) cmd_fatls();
+    else if (strncmp(cmd, "fatread ", 8) == 0) cmd_fatread(cmd + 8);
+    else if (strncmp(cmd, "fatwrite ", 9) == 0) cmd_fatwrite(cmd + 9);
     else {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_printf("Unknown command: %s\n", cmd);

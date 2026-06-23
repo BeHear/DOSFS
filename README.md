@@ -1,39 +1,78 @@
-# DanyaOS v1.2.1
+# DanyaOS v1.3
 
-A hobby microkernel operating system written in C and x86 assembly.
+A hobby microkernel operating system written in C, Rust, and x86 assembly.
 
 ## Architecture
 
 - **Microkernel design** - minimal kernel with userspace drivers
 - **x86 (i386)** target architecture
+- **GRUB/Multiboot** bootloader — boots from USB, CD/DVD, HDD
 - **Preemptive multitasking** scheduler
 - **Virtual memory** with paging
 - **IPC** (Inter-Process Communication)
 - **System calls** via INT 0x80
 - **tmpfs** in-memory filesystem
+- **FAT16** disk filesystem support
+- **ATA/IDE** disk driver (PIO mode)
+- **ACPI** power management (on supported hardware)
 - **Interactive shell** with built-in commands
 - **TUI** (Text User Interface) with menu system
 
-## Subsystems
+## What's New in v1.3
 
-| Module | Description |
-|--------|-------------|
-| GDT | Global Descriptor Table (Ring 0-3) |
-| IDT | Interrupt Descriptor Table |
-| ISR/IRQ | Interrupt handlers |
-| PMM | Physical Memory Manager (bitmap) |
-| VMM | Virtual Memory Manager (paging) |
-| Heap | Dynamic memory allocator |
-| VGA | Text-mode terminal driver |
-| Keyboard | PS/2 keyboard driver |
-| Timer | PIT timer (100Hz) with preemptive scheduling |
-| Scheduler | Round-robin process scheduler |
-| IPC | Message-passing IPC |
-| Syscalls | INT 0x80 syscall interface |
-| tmpfs | In-memory filesystem |
-| Shell | Interactive command shell |
-| TUI | Text user interface with menus |
-| CPUID | CPU identification and feature detection |
+- **GRUB/Multiboot bootloader** — boot from USB, CD/DVD, HDD on any x86 PC
+- **ATA/IDE PIO driver** — real disk access for reading/writing data
+- **FAT16 filesystem** — persistent file storage on disk
+- **ACPI support** — shutdown/reboot on supported hardware
+- **Multiboot info** — memory detection via bootloader
+- **New shell commands**: disk, fatls, fatread, fatwrite
+
+## Building
+
+### Prerequisites
+
+- `gcc` (system compiler with `-ffreestanding` support)
+- `nasm` assembler
+- `grub-mkrescue` (for ISO generation)
+- `qemu-system-i386` (for testing)
+- `xorriso`, `mtools` (for GRUB ISO creation)
+
+### Install dependencies
+
+**Debian/Ubuntu:**
+```bash
+sudo apt install gcc nasm qemu-system-x86 grub-common xorriso mtools
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S gcc nasm qemu-full grub xorriso mtools
+```
+
+### Build
+
+```bash
+make
+```
+
+### Run in QEMU
+
+```bash
+make qemu
+```
+
+### Run with USB passthrough
+
+```bash
+make qemu-usb
+```
+
+### Create bootable USB
+
+```bash
+make
+sudo dd if=build/danyaos.iso of=/dev/sdX bs=4M status=progress
+```
 
 ## Shell Commands
 
@@ -47,13 +86,13 @@ uptime            - timer ticks
 ps                - list processes
 create <name>     - create process
 ipc               - test IPC
-ls                - list files
-touch <file>      - create file
-write <file> <data> - write to file
-cat <file>        - read file
-rm <file>         - delete file
-cp <src> <dst>    - copy file
-mv <src> <dst>    - move/rename file
+ls                - list files (tmpfs)
+touch <file>      - create file (tmpfs)
+write <file> <data> - write to file (tmpfs)
+cat <file>        - read file (tmpfs)
+rm <file>         - delete file (tmpfs)
+cp <src> <dst>    - copy file (tmpfs)
+mv <src> <dst>    - move/rename file (tmpfs)
 hexdump <file>    - hex dump of file
 color <fg> <bg>   - set terminal colors
 date              - system uptime
@@ -65,73 +104,63 @@ reset             - reset terminal
 beep              - PC speaker beep
 about             - about DanyaOS
 tuitest           - TUI demo
-shutdown          - shutdown
-reboot            - reboot
+shutdown          - ACPI shutdown / halt
+reboot            - ACPI reboot
 cpuinfo           - CPU information (vendor, brand, features)
+disk              - ATA disk information
+fatls             - list FAT16 files
+fatread <file>    - read FAT16 file
+fatwrite <file> <data> - write FAT16 file
 ```
 
-## Building
+## Running on Real Hardware
 
-### Prerequisites
+### Requirements
 
-- `gcc` (system compiler with `-ffreestanding` support)
-- `nasm` assembler
-- `qemu-system-i386` (for testing)
+- x86 (i386/i686) compatible processor
+- BIOS or UEFI with Legacy/CSM boot support
+- PS/2 keyboard (USB keyboard may work with some BIOS)
+- VGA text-mode display
 
-### Install dependencies (Debian/Ubuntu)
+### Boot from USB
 
-```bash
-sudo apt install gcc nasm qemu-system-x86
-```
+1. Build: `make`
+2. Write to USB: `sudo dd if=build/danyaos.iso of=/dev/sdX bs=4M status=progress`
+3. Boot from USB in BIOS (Legacy/CSM mode)
 
-### Build
+### Boot from CD/DVD
 
-```bash
-make
-```
+1. Build: `make`
+2. Burn `build/danyaos.iso` to CD/DVD
+3. Boot from CD/DVD
 
-### Run
+### Boot from HDD (dual-boot)
 
-```bash
-make run
-```
-
-### Debug
-
-```bash
-make debug
-```
+1. Build: `make`
+2. Copy `build/danyaos.iso` to a partition accessible by GRUB
+3. Add a GRUB menuentry for DanyaOS
 
 ## Project Structure
 
 ```
 DanyaOS/
 ├── Makefile
+├── grub.cfg
 ├── linker.ld
 ├── src/
-│   ├── boot/           # Bootloader (MBR, protected mode)
+│   ├── boot/           # Multiboot entry point
 │   ├── kernel/         # Core kernel (GDT, IDT, ISR, kernel_main)
-│   ├── drivers/        # Device drivers (VGA, keyboard, timer, serial)
+│   ├── drivers/        # Device drivers (VGA, keyboard, timer, ATA, ACPI)
 │   ├── memory/         # Memory management (PMM, VMM, heap)
 │   ├── process/        # Process management & scheduler, IPC
 │   ├── syscall/        # System call interface
-│   ├── fs/             # Filesystem (tmpfs)
+│   ├── fs/             # Filesystem (tmpfs, FAT16)
 │   ├── shell/          # Interactive shell
 │   ├── tui/            # Text user interface
 │   ├── libc/           # Minimal C library
-│   └── include/        # Common headers (types, I/O)
+│   ├── include/        # Common headers (types, I/O, multiboot)
+│   └── rust/           # Rust kernel modules (PMM, IPC)
 └── build/              # Build output
-```
-
-## Memory Map
-
-```
-0x00000000 - 0x000FFFFF  Kernel (1MB)
-0x00100000 - 0x003FFFFF  Kernel heap
-0x00400000 - 0x00FFFFFF  Kernel heap (expandable)
-0xB8000000               VGA text buffer
-0xBFFFF000               User stack
-0xC0000000               Kernel virtual base
 ```
 
 ## Syscall Table
