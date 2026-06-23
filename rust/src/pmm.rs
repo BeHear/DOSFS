@@ -92,13 +92,28 @@ pub unsafe extern "C" fn rust_pmm_init(total_memory: u32) {
 /// Caller must ensure returned address is used correctly and freed only once.
 #[no_mangle]
 pub extern "C" fn rust_pmm_alloc_page() -> *mut u8 {
+    let was_enabled;
+    unsafe {
+        let flags: u32;
+        core::arch::asm!("pushfd; pop {}", out(reg) flags);
+        was_enabled = flags & 0x200 != 0;
+        core::arch::asm!("cli");
+    }
+
     let tp = TOTAL_PAGES.load(Ordering::Relaxed);
     for i in 0..tp {
         if !bitmap_test(i) {
             bitmap_set(i);
             USED_PAGES.fetch_add(1, Ordering::Relaxed);
+            if was_enabled {
+                unsafe { core::arch::asm!("sti"); }
+            }
             return (i * PAGE_SIZE) as *mut u8;
         }
+    }
+
+    if was_enabled {
+        unsafe { core::arch::asm!("sti"); }
     }
     core::ptr::null_mut()
 }

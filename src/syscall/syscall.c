@@ -7,9 +7,18 @@
 #include "../memory/pmm.h"
 #include "../libc/string.h"
 
+#define USER_SPACE_END 0x80000000
+
+static int validate_user_pointer(uint32_t ptr, uint32_t len) {
+    if (ptr == 0 || ptr >= USER_SPACE_END) return 0;
+    if (len > 0 && (ptr + len < ptr || ptr + len >= USER_SPACE_END)) return 0;
+    return 1;
+}
+
 static void sys_write(stack_state_t* state) {
     const char* buf = (const char*)state->ebx;
     uint32_t len = state->ecx;
+    if (!validate_user_pointer((uint32_t)buf, len)) { state->eax = -1; return; }
     for (uint32_t i = 0; i < len; i++) {
         vga_putchar(buf[i]);
     }
@@ -18,6 +27,7 @@ static void sys_write(stack_state_t* state) {
 static void sys_read(stack_state_t* state) {
     char* buf = (char*)state->ebx;
     uint32_t max_len = state->ecx;
+    if (!validate_user_pointer((uint32_t)buf, max_len)) { state->eax = -1; return; }
     if (max_len == 0) { state->eax = 0; return; }
     uint32_t i = 0;
 
@@ -54,6 +64,7 @@ static void sys_ipc_send(stack_state_t* state) {
     pid_t to = (pid_t)state->ebx;
     const char* data = (const char*)state->ecx;
     uint32_t len = state->edx;
+    if (!validate_user_pointer((uint32_t)data, len)) { state->eax = -1; return; }
     state->eax = ipc_send(to, data, len);
 }
 
@@ -61,6 +72,7 @@ static void sys_ipc_recv(stack_state_t* state) {
     pid_t from = (pid_t)state->ebx;
     char* buf = (char*)state->ecx;
     uint32_t max_len = state->edx;
+    if (!validate_user_pointer((uint32_t)buf, max_len)) { state->eax = -1; return; }
     state->eax = ipc_receive(from, buf, max_len);
 }
 
@@ -75,6 +87,12 @@ static void sys_meminfo(stack_state_t* state) {
 }
 
 void syscall_handler(stack_state_t* state) {
+    if ((state->cs & 3) != 3) {
+        vga_printf("[syscall] called from ring %d, ignoring\n", state->cs & 3);
+        state->eax = -1;
+        return;
+    }
+
     switch (state->eax) {
         case SYSCALL_WRITE:    sys_write(state); break;
         case SYSCALL_READ:     sys_read(state); break;

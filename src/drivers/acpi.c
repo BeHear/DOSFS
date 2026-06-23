@@ -21,16 +21,6 @@ static uint32_t find_rsdp_in_range(uint32_t start, uint32_t length) {
     return 0;
 }
 
-static uint32_t find_rsdp(void) {
-    uint16_t ebda_seg;
-    asm volatile("movw %%ds:0x40E, %0" : "=r"(ebda_seg));
-    if (ebda_seg) {
-        uint32_t addr = find_rsdp_in_range((uint32_t)ebda_seg << 4, 1024);
-        if (addr) return addr;
-    }
-    return find_rsdp_in_range(0xE0000, 0x20000);
-}
-
 static uint32_t find_table(uint32_t rsdt_addr, const char* sig) {
     if (!rsdt_addr) return 0;
     // RSDT must be within mapped memory (first 64MB)
@@ -87,19 +77,17 @@ void acpi_shutdown(void) {
     if (fadt && fadt->pm1a_cnt_blk) {
         uint16_t val = inw(fadt->pm1a_cnt_blk);
         val &= 0xE3FF;
+        val |= (7 << 10);
         val |= 0x2000;
         outw(fadt->pm1a_cnt_blk, val);
 
         if (fadt->pm1b_cnt_blk) {
             val = inw(fadt->pm1b_cnt_blk);
             val &= 0xE3FF;
+            val |= (7 << 10);
             val |= 0x2000;
             outw(fadt->pm1b_cnt_blk, val);
         }
-
-        val = inw(fadt->pm1a_cnt_blk);
-        val |= 0x2000;
-        outw(fadt->pm1a_cnt_blk, val);
     }
 
     outb(0x64, 0x64);

@@ -31,7 +31,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.3.1\n");
+    vga_puts("  Microkernel v1.3.2\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -133,6 +133,12 @@ void kernel_main(uint32_t magic, multiboot_info_t* mbi) {
         serial_puts("[kernel] ERROR: not booted by Multiboot loader!\n");
         vga_puts("\n  ERROR: Not booted by GRUB/Multiboot!\n");
         vga_puts("  This OS requires GRUB to boot.\n");
+        while (1) hlt();
+    }
+
+    if (!mbi) {
+        serial_puts("[kernel] ERROR: multiboot info is NULL!\n");
+        vga_puts("\n  ERROR: Invalid multiboot info pointer!\n");
         while (1) hlt();
     }
 

@@ -27,10 +27,14 @@ static void fat16_parse_name(const char* input, uint8_t* output) {
     memset(output, ' ', 11);
     int i = 0;
     int j = 0;
+    int dot_seen = 0;
 
     while (input[i] && j < 11) {
         if (input[i] == '.') {
-            j = 8;
+            if (!dot_seen) {
+                dot_seen = 1;
+                j = 8;
+            }
             i++;
             continue;
         }
@@ -67,10 +71,11 @@ static void fat16_scan_root(void) {
     for (uint32_t s = 0; s < root_sectors; s++) {
         if (ata_read_sectors(fs.root_start + s, 1, sector) != 0) continue;
 
+        int end_found = 0;
         for (uint32_t i = 0; i < 512; i += 32) {
             fat16_dir_entry_t* entry = (fat16_dir_entry_t*)&sector[i];
 
-            if (entry->name[0] == 0x00) break;
+            if (entry->name[0] == 0x00) { end_found = 1; break; }
             if (entry->name[0] == 0xE5) continue;
             if (entry->attr == 0x0F) continue;
             if (entry->attr & 0x08) continue;
@@ -85,6 +90,7 @@ static void fat16_scan_root(void) {
             file->used = 1;
             fs.file_count++;
         }
+        if (end_found) break;
     }
 }
 
@@ -224,6 +230,24 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
     return -1;
 }
 
+static void fat16_free_cluster_chain(uint32_t cluster) {
+    while (cluster >= 2 && cluster < 0xFF8) {
+        uint32_t next = fat16_get_next_cluster(cluster);
+
+        uint32_t fat_offset = cluster * 2;
+        uint32_t fat_sector = fs.fat_start + (fat_offset / 512);
+        uint32_t ent_offset = fat_offset % 512;
+
+        uint8_t sector[512];
+        if (ata_read_sectors(fat_sector, 1, sector) == 0) {
+            *(uint16_t*)&sector[ent_offset] = 0x0000;
+            ata_write_sectors(fat_sector, 1, sector);
+        }
+
+        cluster = next;
+    }
+}
+
 int fat16_delete_file(const char* name) {
     if (!fs.mounted) return -1;
 
@@ -241,6 +265,9 @@ int fat16_delete_file(const char* name) {
             fat16_dir_entry_t* entry = (fat16_dir_entry_t*)&sector[i];
 
             if (memcmp(entry->name, parsed_name, 11) == 0) {
+                if (entry->first_cluster >= 2) {
+                    fat16_free_cluster_chain(entry->first_cluster);
+                }
                 entry->name[0] = 0xE5;
                 if (ata_write_sectors(fs.root_start + s, 1, sector) != 0) return -1;
 

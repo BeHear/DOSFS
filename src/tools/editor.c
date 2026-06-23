@@ -20,7 +20,7 @@ static void editor_draw(void) {
     // Title bar
     vga_set_color(VGA_BLACK, VGA_LIGHT_CYAN);
     for (int i = 0; i < EDITOR_W; i++) vga_putchar_at(i, 0, ' ');
-    vga_puts_at(2, 0, "DANO Editor v1.3.1");
+    vga_puts_at(2, 0, "DANO Editor v1.3.2");
     if (ed.filename[0]) {
         vga_puts_at(EDITOR_W - strlen(ed.filename) - 4, 0, ed.filename);
     }
@@ -32,7 +32,6 @@ static void editor_draw(void) {
         vga_set_color(VGA_DARK_GREY, VGA_BLACK);
         char lnum[8];
         itoa(line_idx + 1, lnum, 10);
-        int pad = 3 - strlen(lnum);
         char lbuf[8] = "   ";
         for (int p = 0; lnum[p]; p++) lbuf[3 - strlen(lnum) + p] = lnum[p];
         vga_puts_at(0, i + 1, lbuf);
@@ -146,7 +145,7 @@ static int editor_save(void) {
 
     for (int i = 0; i < ed.line_count; i++) {
         int len = strlen(ed.lines[i]);
-        if (pos + len + 1 > buf_size) break;
+        if (pos + len + 1 > (uint32_t)buf_size) break;
         if (len > 0) {
             memcpy(save_buf + pos, ed.lines[i], len);
             pos += len;
@@ -164,12 +163,17 @@ static int editor_save(void) {
     kfree(save_buf);
 
     ed.modified = 0;
-    char msg[64] = "Saved ";
+    char msg[80];
     char tmp[8];
     itoa(pos, tmp, 10);
+    strcpy(msg, "Saved ");
     strcat(msg, tmp);
     strcat(msg, " bytes to ");
-    strcat(msg, ed.filename);
+    int remaining = sizeof(msg) - strlen(msg) - 1;
+    int fn_len = strlen(ed.filename);
+    if (fn_len > remaining) fn_len = remaining;
+    memcpy(msg + strlen(msg), ed.filename, fn_len);
+    msg[strlen(msg) + fn_len] = '\0';
     vga_puts_at(1, STATUS_Y, msg);
     return 0;
 }

@@ -2,6 +2,7 @@
 #include "vmm.h"
 #include "pmm.h"
 #include "../libc/string.h"
+#include "../drivers/vga.h"
 
 #define HEAP_START  0x00400000
 #define HEAP_END    0x01000000
@@ -70,16 +71,24 @@ void heap_init(void) {
 
     uint32_t heap_size = 256 * 1024;
     uint32_t pages_needed = (heap_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    uint32_t pages_mapped = 0;
 
     for (uint32_t i = 0; i < pages_needed; i++) {
         void* page = pmm_alloc_page();
         if (!page) break;
         vmm_map_page(heap_current, (uint32_t)page, 0x3);
         heap_current += PAGE_SIZE;
+        pages_mapped++;
     }
 
+    if (pages_mapped == 0) {
+        vga_puts("  [FAIL] Heap: no pages available\n");
+        return;
+    }
+
+    uint32_t actual_heap_size = pages_mapped * PAGE_SIZE;
     block_t* first = (block_t*)HEAP_START;
-    first->size = heap_size - BLOCK_SIZE;
+    first->size = actual_heap_size - BLOCK_SIZE;
     first->free = true;
     first->magic = BLOCK_MAGIC;
     first->next = NULL;

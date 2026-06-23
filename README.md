@@ -1,4 +1,4 @@
-# DanyaOS v1.3
+# DanyaOS v1.3.2
 
 A hobby microkernel operating system written in C, Rust, and x86 assembly.
 

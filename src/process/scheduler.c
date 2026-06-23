@@ -43,7 +43,7 @@ void process_create(const char* name, void (*entry)(void)) {
         return;
     }
     proc->kernel_stack = (uint32_t)kstack_page + PAGE_SIZE;
-    proc->user_stack = 0xBFFFF000;
+    proc->user_stack = 0xBFFFF000 - (slot * PAGE_SIZE);
 
     void* ustack_page = pmm_alloc_page();
     if (!ustack_page) {
@@ -70,6 +70,16 @@ void process_create(const char* name, void (*entry)(void)) {
 void process_exit(int code) {
     if (current_process < 0) return;
     process_t* proc = &processes[current_process];
+
+    if (proc->kernel_stack) {
+        pmm_free_page((void*)(proc->kernel_stack - PAGE_SIZE));
+        proc->kernel_stack = 0;
+    }
+    if (proc->user_stack) {
+        vmm_unmap_page(proc->user_stack);
+        proc->user_stack = 0;
+    }
+
     proc->state = PROC_UNUSED;
     proc->exit_code = code;
     vga_printf("[scheduler] process '%s' exited (code=%d)\n", proc->name, code);

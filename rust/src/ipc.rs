@@ -63,6 +63,14 @@ pub unsafe extern "C" fn rust_ipc_send(
     data: *const u8,
     length: u32,
 ) -> i32 {
+    let was_enabled;
+    {
+        let flags: u32;
+        core::arch::asm!("pushfd; pop {}", out(reg) flags);
+        was_enabled = flags & 0x200 != 0;
+        core::arch::asm!("cli");
+    }
+
     let len = if length > IPC_MSG_SIZE as u32 {
         IPC_MSG_SIZE as u32
     } else {
@@ -74,20 +82,19 @@ pub unsafe extern "C" fn rust_ipc_send(
     let head = QUEUE_HEAD.load(Ordering::Acquire);
 
     if next == head {
-        // Queue full
+        if was_enabled { core::arch::asm!("sti"); }
         return -1;
     }
 
-    // Validate receiver exists (pid must be > 0 and <= MAX_PROCESSES=32)
     if to < 1 || to > 32 {
+        if was_enabled { core::arch::asm!("sti"); }
         return -1;
     }
 
     let msg = &mut MESSAGE_QUEUE[tail as usize];
-    msg.sender = 0; // Will be set by caller if needed
+    msg.sender = 0;
     msg.receiver = to;
 
-    // Safe copy: len is clamped to IPC_MSG_SIZE
     let src_slice = core::slice::from_raw_parts(data, len as usize);
     let dst_slice = core::slice::from_raw_parts_mut(msg.data.as_mut_ptr(), len as usize);
     dst_slice.copy_from_slice(src_slice);
@@ -96,6 +103,8 @@ pub unsafe extern "C" fn rust_ipc_send(
     msg.used = true;
 
     QUEUE_TAIL.store(next, Ordering::Release);
+
+    if was_enabled { core::arch::asm!("sti"); }
     len as i32
 }
 
@@ -110,20 +119,31 @@ pub unsafe extern "C" fn rust_ipc_receive(
     buf: *mut u8,
     max_len: u32,
 ) -> i32 {
+    let was_enabled;
+    {
+        let flags: u32;
+        core::arch::asm!("pushfd; pop {}", out(reg) flags);
+        was_enabled = flags & 0x200 != 0;
+        core::arch::asm!("cli");
+    }
+
     let head = QUEUE_HEAD.load(Ordering::Relaxed);
     let tail = QUEUE_TAIL.load(Ordering::Acquire);
 
     if head == tail {
+        if was_enabled { core::arch::asm!("sti"); }
         return 0;
     }
 
     let msg = &mut MESSAGE_QUEUE[head as usize];
     if !msg.used {
         QUEUE_HEAD.store((head + 1) % IPC_MAX_MSGS as u32, Ordering::Release);
+        if was_enabled { core::arch::asm!("sti"); }
         return 0;
     }
 
     if from != 0 && msg.sender != from {
+        if was_enabled { core::arch::asm!("sti"); }
         return 0;
     }
 
@@ -140,5 +160,7 @@ pub unsafe extern "C" fn rust_ipc_receive(
     msg.used = false;
     let new_head = (head + 1) % IPC_MAX_MSGS as u32;
     QUEUE_HEAD.store(new_head, Ordering::Release);
+
+    if was_enabled { core::arch::asm!("sti"); }
     copy_len as i32
 }

@@ -41,7 +41,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.3.1 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.3.2 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -71,7 +71,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.3.1 (Microkernel)\n");
+    vga_puts("DanyaOS 1.3.2 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC freestanding\n");
 }
@@ -141,12 +141,14 @@ static void cmd_write_file(const char* args) {
 static void cmd_cat(const char* name) {
     while (*name == ' ') name++;
     if (*name == '\0') { vga_puts("Usage: cat <filename>\n"); return; }
-    char buf[TMPFS_DATA_SIZE + 1];
+    char* buf = (char*)kmalloc(TMPFS_DATA_SIZE + 1);
+    if (!buf) { vga_puts("Out of memory\n"); return; }
     int len = tmpfs_read(name, buf, TMPFS_DATA_SIZE);
-    if (len < 0) { vga_printf("File not found: %s\n", name); return; }
+    if (len < 0) { kfree(buf); vga_printf("File not found: %s\n", name); return; }
     buf[len] = '\0';
     vga_puts(buf);
     vga_putchar('\n');
+    kfree(buf);
 }
 
 static void cmd_rm(const char* name) {
@@ -169,10 +171,12 @@ static void cmd_cp(const char* args) {
     i = 0;
     while (*args && *args != ' ' && i < 63) dst[i++] = *args++;
     dst[i] = '\0';
-    char buf[TMPFS_DATA_SIZE];
+    char* buf = (char*)kmalloc(TMPFS_DATA_SIZE);
+    if (!buf) { vga_puts("Out of memory\n"); return; }
     int len = tmpfs_read(src, buf, TMPFS_DATA_SIZE);
-    if (len < 0) { vga_printf("Source not found: %s\n", src); return; }
+    if (len < 0) { kfree(buf); vga_printf("Source not found: %s\n", src); return; }
     tmpfs_write(dst, buf, len);
+    kfree(buf);
     vga_printf("Copied %s -> %s (%d bytes)\n", src, dst, len);
 }
 
@@ -187,10 +191,12 @@ static void cmd_mv(const char* args) {
     i = 0;
     while (*args && *args != ' ' && i < 63) dst[i++] = *args++;
     dst[i] = '\0';
-    char buf[TMPFS_DATA_SIZE];
+    char* buf = (char*)kmalloc(TMPFS_DATA_SIZE);
+    if (!buf) { vga_puts("Out of memory\n"); return; }
     int len = tmpfs_read(src, buf, TMPFS_DATA_SIZE);
-    if (len < 0) { vga_printf("Source not found: %s\n", src); return; }
+    if (len < 0) { kfree(buf); vga_printf("Source not found: %s\n", src); return; }
     tmpfs_write(dst, buf, len);
+    kfree(buf);
     tmpfs_delete(src);
     vga_printf("Moved %s -> %s\n", src, dst);
 }
@@ -198,9 +204,10 @@ static void cmd_mv(const char* args) {
 static void cmd_hexdump(const char* name) {
     while (*name == ' ') name++;
     if (*name == '\0') { vga_puts("Usage: hexdump <filename>\n"); return; }
-    char buf[TMPFS_DATA_SIZE];
+    char* buf = (char*)kmalloc(TMPFS_DATA_SIZE);
+    if (!buf) { vga_puts("Out of memory\n"); return; }
     int len = tmpfs_read(name, buf, TMPFS_DATA_SIZE);
-    if (len < 1) { vga_printf("File not found or empty: %s\n", name); return; }
+    if (len < 1) { kfree(buf); vga_printf("File not found or empty: %s\n", name); return; }
     vga_printf("Hexdump of %s (%d bytes):\n", name, len);
     for (int i = 0; i < len; i += 16) {
         vga_printf("%04x: ", i);
@@ -209,6 +216,7 @@ static void cmd_hexdump(const char* name) {
         }
         vga_puts("\n");
     }
+    kfree(buf);
 }
 
 static void cmd_color(const char* args) {
@@ -346,7 +354,7 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.3.1\n");
+    vga_puts("DanyaOS v1.3.2\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C, Rust, and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
@@ -462,13 +470,15 @@ static void cmd_reboot(void) {
 
 static void add_to_history(const char* cmd) {
     if (history_count < HISTORY_SIZE) {
-        strcpy(history[history_count], cmd);
+        strncpy(history[history_count], cmd, CMD_BUF_SIZE - 1);
+        history[history_count][CMD_BUF_SIZE - 1] = '\0';
         history_count++;
     } else {
         for (int i = 0; i < HISTORY_SIZE - 1; i++) {
             strcpy(history[i], history[i + 1]);
         }
-        strcpy(history[HISTORY_SIZE - 1], cmd);
+        strncpy(history[HISTORY_SIZE - 1], cmd, CMD_BUF_SIZE - 1);
+        history[HISTORY_SIZE - 1][CMD_BUF_SIZE - 1] = '\0';
     }
 }
 
