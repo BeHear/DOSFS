@@ -555,7 +555,7 @@ static void process_command(const char* cmd) {
             }
         }
     }
-    else if (strncmp(cmd, "dano", 4) == 0) {
+    else if (strncmp(cmd, "dano", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) {
         char* fn = cmd + 4;
         while (*fn == ' ') fn++;
         if (*fn) editor_open(fn);

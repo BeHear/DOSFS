@@ -67,6 +67,7 @@ static const char scancode_to_shift[] = {
 };
 
 static uint8_t shift_pressed = 0;
+static uint8_t ctrl_pressed = 0;
 static uint8_t caps_lock = 0;
 static uint8_t extended_prefix = 0;
 
@@ -78,6 +79,9 @@ static void keyboard_handler(stack_state_t* state) {
         extended_prefix = 1;
         return;
     }
+
+    if (scancode == 0x1D) { ctrl_pressed = 1; return; }
+    if (scancode == 0x9D) { ctrl_pressed = 0; return; }
 
     if (scancode == 0x2A || scancode == 0x36) {
         shift_pressed = 1;
@@ -97,6 +101,8 @@ static void keyboard_handler(stack_state_t* state) {
 
     if (extended_prefix) {
         extended_prefix = 0;
+        if (scancode == 0x1D) { ctrl_pressed = 1; return; }
+        if (scancode == 0x9D) { ctrl_pressed = 0; return; }
         scancode_buffer = scancode;
         scancode_available = true;
         return;
@@ -107,7 +113,11 @@ static void keyboard_handler(stack_state_t* state) {
 
     char c = shift_pressed ? scancode_to_shift[scancode] : scancode_to_ascii[scancode];
 
-    if (caps_lock) {
+    if (ctrl_pressed && c >= 'a' && c <= 'z') {
+        c &= 0x1F;
+    } else if (ctrl_pressed && c >= 'A' && c <= 'Z') {
+        c &= 0x1F;
+    } else if (caps_lock) {
         if (c >= 'a' && c <= 'z')
             c = c - 'a' + 'A';
         else if (c >= 'A' && c <= 'Z')
@@ -147,4 +157,11 @@ uint8_t keyboard_get_scancode(void) {
     scancode_available = false;
     sti();
     return sc;
+}
+
+void keyboard_flush(void) {
+    cli();
+    key_available = false;
+    scancode_available = false;
+    sti();
 }

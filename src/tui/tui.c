@@ -176,6 +176,7 @@ void tui_test(void) {
         uint8_t sc = keyboard_get_scancode();
 
         if (sc == SCAN_ESC) {
+            keyboard_flush();
             break;
         } else if (sc == SCAN_UP) {
             if (selected > 0) selected--;
@@ -189,6 +190,7 @@ void tui_test(void) {
                 case 2: show_file_info(); break;
                 case 3: show_system_info(); break;
                 case 4:
+                    keyboard_flush();
                     vga_clear();
                     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
                     return;

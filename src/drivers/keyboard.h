@@ -7,5 +7,6 @@ void keyboard_init(void);
 char keyboard_getchar(void);
 bool keyboard_has_key(void);
 uint8_t keyboard_get_scancode(void);
+void keyboard_flush(void);
 
 #endif

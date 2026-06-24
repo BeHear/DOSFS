@@ -1,6 +1,6 @@
 #include "editor.h"
 #include "../drivers/vga.h"
-#include "../drivers/keyboard.h"
+#include "../drivers/keyboard.h"  // keyboard_getchar, keyboard_flush
 #include "../drivers/timer.h"
 #include "../include/io.h"
 #include "../libc/string.h"
@@ -10,14 +10,12 @@
 #define EDITOR_W 80
 #define EDITOR_H 25
 #define STATUS_Y (EDITOR_H - 1)
-#define CONTENT_H (EDITOR_H - 3)
+#define CONTENT_H (EDITOR_H - 2)
 
 static editor_t ed;
 
 static void editor_draw(void) {
-    vga_clear();
-
-    // Title bar
+    // Title bar (row 0)
     vga_set_color(VGA_BLACK, VGA_LIGHT_CYAN);
     for (int i = 0; i < EDITOR_W; i++) vga_putchar_at(i, 0, ' ');
     vga_puts_at(2, 0, "DANO Editor v1.3.2");
@@ -26,15 +24,22 @@ static void editor_draw(void) {
     }
     if (ed.modified) vga_putchar_at(EDITOR_W - 2, 0, '*');
 
-    // Line numbers + content
+    // Line numbers + content (rows 1..CONTENT_H)
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     for (int i = 0; i < CONTENT_H; i++) {
         int line_idx = i + ed.scroll_y;
+        // Clear whole row
+        for (int col = 0; col < EDITOR_W; col++)
+            vga_putchar_at(col, i + 1, ' ');
+
+        // Line number
         vga_set_color(VGA_DARK_GREY, VGA_BLACK);
         char lnum[8];
         itoa(line_idx + 1, lnum, 10);
-        char lbuf[8] = "   ";
-        for (int p = 0; lnum[p]; p++) lbuf[3 - strlen(lnum) + p] = lnum[p];
-        vga_puts_at(0, i + 1, lbuf);
+        int lnum_len = strlen(lnum);
+        int lnum_start = 4 - (lnum_len < 4 ? lnum_len : 3);
+        for (int p = 0; lnum[p] && lnum_start + p < 4; p++)
+            vga_putchar_at(lnum_start + p, i + 1, lnum[p]);
 
         vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
         if (line_idx < ed.line_count) {
@@ -169,11 +174,12 @@ static int editor_save(void) {
     strcpy(msg, "Saved ");
     strcat(msg, tmp);
     strcat(msg, " bytes to ");
-    int remaining = sizeof(msg) - strlen(msg) - 1;
+    int remaining = (int)sizeof(msg) - (int)strlen(msg) - 1;
     int fn_len = strlen(ed.filename);
     if (fn_len > remaining) fn_len = remaining;
-    memcpy(msg + strlen(msg), ed.filename, fn_len);
-    msg[strlen(msg) + fn_len] = '\0';
+    int msg_len = strlen(msg);
+    memcpy(msg + msg_len, ed.filename, fn_len);
+    msg[msg_len + fn_len] = '\0';
     vga_puts_at(1, STATUS_Y, msg);
     return 0;
 }
@@ -253,6 +259,7 @@ void editor_run(void) {
         if (ed.cursor_y >= ed.scroll_y + CONTENT_H) ed.scroll_y = ed.cursor_y - CONTENT_H + 1;
     }
 
+    keyboard_flush();
     vga_clear();
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
