@@ -1,8 +1,5 @@
 # DOSFS v1.4
 
-> **⚠️ DEPRECATED** — This project is no longer actively developed.
-> A new OS is coming soon. Stay tuned.
-
 A hobby microkernel operating system written in C, Rust, and x86 assembly.
 
 ## Architecture
