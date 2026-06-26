@@ -22,6 +22,8 @@
 #include "../include/io.h"
 #include "../include/multiboot.h"
 #include "../libc/string.h"
+#include "../drivers/ne2000.h"
+#include "../net/net.h"
 
 static void print_banner(void) {
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
@@ -34,7 +36,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.4\n");
+    vga_puts("  Microkernel v1.4.2\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -142,6 +144,14 @@ static void init_subsystems(multiboot_info_t* mbi) {
     if (fat16_mount() != 0) {
         vga_puts("  [SKIP] FAT16: No FAT16 filesystem found\n");
     }
+    serial_puts(" done\n");
+
+    serial_puts("[init] NE2000...");
+    ne2000_init();
+    serial_puts(" done\n");
+
+    serial_puts("[init] Network stack...");
+    net_init();
     serial_puts(" done\n");
 
     sti();

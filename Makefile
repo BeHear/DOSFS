@@ -40,6 +40,8 @@ OBJS    = $(BUILD)/kernel_entry.o \
            $(BUILD)/pci.o \
            $(BUILD)/acpi.o \
            $(BUILD)/acpi_sim.o \
+           $(BUILD)/ne2000.o \
+           $(BUILD)/net.o \
           $(BUILD)/cpu_sim.o \
           $(BUILD)/editor.o \
           $(BUILD)/shell.o \
@@ -118,6 +120,10 @@ $(BUILD)/%.o: $(SRC)/tools/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: $(SRC)/libc/%.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: $(SRC)/net/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 

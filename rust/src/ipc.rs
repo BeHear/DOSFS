@@ -59,6 +59,7 @@ pub unsafe extern "C" fn rust_ipc_init() {
 /// `data` must point to a valid buffer of at least `length` bytes.
 #[no_mangle]
 pub unsafe extern "C" fn rust_ipc_send(
+    from: i32,
     to: i32,
     data: *const u8,
     length: u32,
@@ -92,7 +93,7 @@ pub unsafe extern "C" fn rust_ipc_send(
     }
 
     let msg = &mut MESSAGE_QUEUE[tail as usize];
-    msg.sender = to;
+    msg.sender = from;
     msg.receiver = to;
 
     let src_slice = core::slice::from_raw_parts(data, len as usize);

@@ -257,7 +257,7 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
 
     int first_cluster = fat16_allocate_cluster();
     if (first_cluster < 2) {
-        // Create empty entry if no clusters available
+        if (size > 0) return -1;
         first_cluster = 0;
     }
 

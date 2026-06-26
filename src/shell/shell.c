@@ -19,6 +19,7 @@
 #include "../tools/acpi_sim.h"
 #include "../tools/cpu_sim.h"
 #include "../tools/editor.h"
+#include "../net/net.h"
 
 #define CMD_BUF_SIZE 256
 #define HISTORY_SIZE 20
@@ -44,7 +45,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.4 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.4.2 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -54,7 +55,8 @@ static void cmd_help(void) {
     vga_puts(" beep        about       tuitest     shutdown\n");
     vga_puts(" reboot      cpuinfo     disk        fatls\n");
     vga_puts(" fatread     fatwrite    sacpi       ver\n");
-    vga_puts(" sysinfo     pci         colors      random\n\n");
+    vga_puts(" sysinfo     pci         colors      random\n");
+    vga_puts(" ping        curl\n\n");
     vga_puts(" CPU Simulator:\n");
     vga_puts("  reg [name] [val]  - show/set registers\n");
     vga_puts("  asm <instruction> - execute x86 instruction\n");
@@ -611,6 +613,90 @@ static void cmd_reboot(void) {
     hlt();
 }
 
+static void cmd_ping(const char* args) {
+    while (*args == ' ') args++;
+    if (*args == '\0') { vga_puts("Usage: ping <ip>\n"); return; }
+    int a = 0, b = 0, c = 0, d = 0;
+    const char* p = args;
+    while (*p >= '0' && *p <= '9') a = a * 10 + (*p++ - '0');
+    if (*p == '.') p++;
+    while (*p >= '0' && *p <= '9') b = b * 10 + (*p++ - '0');
+    if (*p == '.') p++;
+    while (*p >= '0' && *p <= '9') c = c * 10 + (*p++ - '0');
+    if (*p == '.') p++;
+    while (*p >= '0' && *p <= '9') d = d * 10 + (*p++ - '0');
+    if (a == 0 && b == 0 && c == 0 && d == 0 && *args != '0') {
+        vga_puts("Invalid IP format.\n");
+        return;
+    }
+    uint32_t ip = ((uint32_t)a << 24) | ((uint32_t)b << 16) |
+                  ((uint32_t)c << 8) | (uint32_t)d;
+    vga_printf("PING %d.%d.%d.%d: 64 bytes of data.\n", a, b, c, d);
+    for (int i = 0; i < 4; i++) {
+        int ms = net_ping(ip);
+        if (ms == -1) {
+            vga_puts("  Request failed (network error)\n");
+        } else if (ms == -2) {
+            vga_printf("  Request timeout (400ms)\n");
+        } else {
+            vga_printf("  64 bytes: time=%d ms\n", ms * 5);
+        }
+        for (volatile int j = 0; j < 200000; j++);
+    }
+}
+
+static void cmd_curl(const char* args) {
+    while (*args == ' ') args++;
+    if (*args == '\0') { vga_puts("Usage: curl <ip:port/path>\n"); return; }
+
+    char host[32] = {0};
+    uint16_t port = 80;
+    const char* path = "/";
+
+    // Parse ip:port/path
+    const char* p = args;
+    int i = 0;
+    while (*p && *p != ':' && *p != '/' && i < 31) host[i++] = *p++;
+    host[i] = '\0';
+    if (*p == ':') {
+        p++;
+        port = 0;
+        while (*p >= '0' && *p <= '9') { port = port * 10 + (*p - '0'); p++; }
+    }
+    if (*p == '/') path = p;
+
+    vga_printf("Connecting to %s:%d...\n", host, port);
+    if (tcp_connect(host, port) != 0) {
+        vga_puts("Connection failed.\n");
+        return;
+    }
+    vga_puts("Connected!\n");
+
+    // Send HTTP GET
+    char req[256];
+    int rlen = snprintf(req, sizeof(req), "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    tcp_send_data((uint8_t*)req, rlen);
+
+    // Receive response
+    vga_puts("--- Response ---\n");
+    uint8_t buf[4096];
+    int total = 0;
+    for (int i = 0; i < 100; i++) {
+        int n = tcp_recv(buf, sizeof(buf) - 1);
+        if (n > 0) {
+            buf[n] = '\0';
+            vga_puts((char*)buf);
+            total += n;
+        }
+        if (n == 0 && i > 10) break;
+    }
+    if (total == 0) vga_puts("(no data received)\n");
+    else {
+        vga_printf("\n--- %d bytes received ---\n", total);
+    }
+    tcp_close();
+}
+
 static void add_to_history(const char* cmd) {
     if (history_count < HISTORY_SIZE) {
         strncpy(history[history_count], cmd, CMD_BUF_SIZE - 1);
@@ -618,7 +704,8 @@ static void add_to_history(const char* cmd) {
         history_count++;
     } else {
         for (int i = 0; i < HISTORY_SIZE - 1; i++) {
-            strcpy(history[i], history[i + 1]);
+            strncpy(history[i], history[i + 1], CMD_BUF_SIZE - 1);
+            history[i][CMD_BUF_SIZE - 1] = '\0';
         }
         strncpy(history[HISTORY_SIZE - 1], cmd, CMD_BUF_SIZE - 1);
         history[HISTORY_SIZE - 1][CMD_BUF_SIZE - 1] = '\0';
@@ -670,6 +757,8 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "fatls") == 0) cmd_fatls();
     else if (strncmp(cmd, "fatread", 7) == 0 && (cmd[7] == ' ' || cmd[7] == '\0')) cmd_fatread(cmd + 7);
     else if (strncmp(cmd, "fatwrite", 8) == 0 && (cmd[8] == ' ' || cmd[8] == '\0')) cmd_fatwrite(cmd + 8);
+    else if (strncmp(cmd, "ping", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) cmd_ping(cmd + 4);
+    else if (strncmp(cmd, "curl", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) cmd_curl(cmd + 4);
     else if (strncmp(cmd, "sacpi", 5) == 0 && (cmd[5] == ' ' || cmd[5] == '\0')) acpi_sim_execute_command(cmd + 5);
     else if (strcmp(cmd, "dump") == 0) cpu_sim_dump();
     else if (strncmp(cmd, "asm", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0')) cpu_sim_execute(cmd + 3);

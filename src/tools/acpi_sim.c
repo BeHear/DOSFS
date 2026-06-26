@@ -226,7 +226,8 @@ void acpi_sim_execute_command(const char* args) {
             return;
         }
         char reg[32];
-        strcpy(reg, args);
+        strncpy(reg, args, 31);
+        reg[31] = '\0';
         // Trim spaces
         int len = strlen(reg);
         while (len > 0 && reg[len-1] == ' ') {

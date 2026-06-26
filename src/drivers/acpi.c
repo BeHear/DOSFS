@@ -87,16 +87,16 @@ int acpi_init(void) {
 void acpi_shutdown(void) {
     if (fadt && fadt->pm1a_cnt_blk) {
         uint16_t val = inw(fadt->pm1a_cnt_blk);
-        val &= 0xE3FF;
-        val |= (7 << 10);
-        val |= 0x2000;
+        uint16_t slp_typ = (val >> 10) & 7;
+        if (slp_typ == 0) slp_typ = 5;
+        val = (val & ~0x1C00) | (slp_typ << 10) | 0x2000;
         outw(fadt->pm1a_cnt_blk, val);
 
         if (fadt->pm1b_cnt_blk) {
             val = inw(fadt->pm1b_cnt_blk);
-            val &= 0xE3FF;
-            val |= (7 << 10);
-            val |= 0x2000;
+            slp_typ = (val >> 10) & 7;
+            if (slp_typ == 0) slp_typ = 5;
+            val = (val & ~0x1C00) | (slp_typ << 10) | 0x2000;
             outw(fadt->pm1b_cnt_blk, val);
         }
     }
