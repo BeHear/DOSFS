@@ -82,7 +82,7 @@ int net_send_ip(const uint8_t* dst_ip, uint8_t proto,
 
     ip_header_t* ip = (ip_header_t*)(frame + 14);
     memset(ip, 0, 20);
-    ip->hdr_len    = 5;
+    ip->hdr_len    = 0x45; /* version=4, IHL=5 (20 bytes) */
     ip->total_len  = htons(20 + len);
     ip->ttl        = 64;
     ip->proto      = proto;
@@ -150,7 +150,6 @@ int arp_resolve(const uint8_t* ip, uint8_t* mac) {
     while (arp_waiting && timer_get_ticks() < deadline) {
         net_poll();
         asm volatile("sti; hlt; cli");
-        net_poll(); /* Check again after hlt */
     }
     if (!arp_waiting) { memcpy(mac, arp_reply_mac, 6); arp_cache_add(ip, mac); return 1; }
     return 0;
@@ -379,8 +378,9 @@ void tcp_close(void) {
 static void dispatch(const uint8_t* pkt, uint16_t len) {
     if (len < 14) return;
     const eth_header_t* e = (const eth_header_t*)pkt;
-    if (e->ethertype == ETH_TYPE_ARP) { arp_process(pkt, len); return; }
-    if (e->ethertype != ETH_TYPE_IP) return;
+    uint16_t type = ntohs(e->ethertype);
+    if (type == ETH_TYPE_ARP) { arp_process(pkt, len); return; }
+    if (type != ETH_TYPE_IP) return;
     if (len < 34) return;
     const ip_header_t* ip = (const ip_header_t*)(pkt + 14);
     if (ip->proto == IP_ICMP)

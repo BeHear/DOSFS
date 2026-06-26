@@ -71,7 +71,7 @@ void ne2000_init(void) {
     mac_addr[0]=0x52; mac_addr[1]=0x54; mac_addr[2]=0x00;
     mac_addr[3]=0x12; mac_addr[4]=0x34; mac_addr[5]=0x56;
 
-    /* Page 1: set MAC (PAR at 0x11) */
+    /* Page 1: set MAC and CURR */
     ne_outb(NE2000_REG_CR, NE2000_CR_STA | NE2000_CR_PAGE1);
     for (int i = 0; i < 6; i++)
         ne_outb(NE2000_REG_PAR0 + i, mac_addr[i]);
