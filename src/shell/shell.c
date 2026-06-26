@@ -681,18 +681,20 @@ static void cmd_curl(const char* args) {
     int rlen = snprintf(req, sizeof(req), "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
     tcp_send_data((uint8_t*)req, rlen);
 
-    // Receive response
-    vga_puts("--- Response ---\n");
+    // Receive response (streaming: press any key to stop)
+    vga_puts("--- Response (press any key to stop) ---\n");
     uint8_t buf[4096];
     int total = 0;
-    for (int i = 0; i < 100; i++) {
+    while (1) {
+        if (keyboard_has_key()) { keyboard_getchar(); break; }
         int n = tcp_recv(buf, sizeof(buf) - 1);
         if (n > 0) {
             buf[n] = '\0';
             vga_puts((char*)buf);
             total += n;
+        } else if (n == -1) {
+            break; // connection closed
         }
-        if (n == 0 && i > 10) break;
     }
     if (total == 0) vga_puts("(no data received)\n");
     else {

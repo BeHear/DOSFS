@@ -385,6 +385,8 @@ int tcp_send_data(const uint8_t* data, uint16_t len) {
 }
 
 int tcp_recv(uint8_t* buf, uint16_t max) {
+    // If already closed with no data, return -1
+    if (ts.state == TCP_CLOSED && ts.rx_read >= ts.rx_len) return -1;
     uint32_t deadline = timer_get_ticks() + 50;
     while (timer_get_ticks() < deadline) {
         net_poll();
@@ -395,6 +397,7 @@ int tcp_recv(uint8_t* buf, uint16_t max) {
             ts.rx_read += n;
             return (int)n;
         }
+        if (ts.state == TCP_CLOSED) return -1;
         asm volatile("sti; hlt; cli");
     }
     return 0;
