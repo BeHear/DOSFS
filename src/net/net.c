@@ -22,6 +22,8 @@ static uint32_t ntohl(uint32_t x) { return htonl(x); }
    Configuration
    ═══════════════════════════════════════════ */
 static uint8_t our_ip[4]     = {10, 0, 2, 15};
+static uint8_t netmask[4]   = {255, 255, 255, 0};
+static uint8_t gateway[4]   = {10, 0, 2, 2};
 
 /* ═══════════════════════════════════════════
    RX ring buffer
@@ -74,7 +76,18 @@ uint16_t tcp_checksum(const uint8_t* src, const uint8_t* dst,
 int net_send_ip(const uint8_t* dst_ip, uint8_t proto,
                 const uint8_t* payload, uint16_t len) {
     uint8_t mac[6];
-    if (!arp_resolve(dst_ip, mac)) return -1;
+    /* Route: if dst is not on local subnet, resolve gateway instead */
+    uint8_t route_ip[4];
+    int on_subnet = 1;
+    for (int i = 0; i < 4; i++)
+        if ((dst_ip[i] & netmask[i]) != (our_ip[i] & netmask[i]))
+            on_subnet = 0;
+    if (on_subnet) {
+        memcpy(route_ip, dst_ip, 4);
+    } else {
+        memcpy(route_ip, gateway, 4);
+    }
+    if (!arp_resolve(route_ip, mac)) return -1;
 
     uint16_t total = 14 + 20 + len;
     if (total > 1500) return -1;
