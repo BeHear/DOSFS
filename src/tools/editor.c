@@ -83,11 +83,18 @@ static void editor_insert_char(char c) {
     char* line = ed.lines[ed.cursor_y];
     int len = strlen(line);
     if (len >= EDITOR_LINE_LEN - 1) return;
+    if (ed.cursor_x > len) ed.cursor_x = len;
 
-    for (int i = len; i > ed.cursor_x; i--) {
-        line[i + 1] = line[i];
+    // Shift right, but ensure we don't write past EDITOR_LINE_LEN-1
+    int max_shift = EDITOR_LINE_LEN - 1;
+    for (int i = len; i >= ed.cursor_x; i--) {
+        int dst = i + 1;
+        if (dst > max_shift) continue;
+        line[dst] = line[i];
     }
-    line[ed.cursor_x] = c;
+    if (ed.cursor_x <= max_shift) {
+        line[ed.cursor_x] = c;
+    }
     ed.cursor_x++;
     ed.modified = 1;
 }
@@ -169,17 +176,7 @@ static int editor_save(void) {
 
     ed.modified = 0;
     char msg[80];
-    char tmp[8];
-    itoa(pos, tmp, 10);
-    strcpy(msg, "Saved ");
-    strcat(msg, tmp);
-    strcat(msg, " bytes to ");
-    int remaining = (int)sizeof(msg) - (int)strlen(msg) - 1;
-    int fn_len = strlen(ed.filename);
-    if (fn_len > remaining) fn_len = remaining;
-    int msg_len = strlen(msg);
-    memcpy(msg + msg_len, ed.filename, fn_len);
-    msg[msg_len + fn_len] = '\0';
+    snprintf(msg, sizeof(msg), "Saved %d bytes to %.48s", pos, ed.filename);
     vga_puts_at(1, STATUS_Y, msg);
     return 0;
 }

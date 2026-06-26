@@ -96,6 +96,8 @@ void process_exit(int code) {
 }
 
 void scheduler_tick(void) {
+    if (process_count == 0) return;
+
     if (current_process >= 0 && processes[current_process].state == PROC_RUNNING) {
         processes[current_process].time_slices++;
     }
@@ -111,7 +113,7 @@ void scheduler_tick(void) {
 
     if (next < 0 || next == current_process) return;
 
-    if (current_process >= 0 && processes[current_process].state == PROC_RUNNING) {
+    if (current_process >= 0) {
         processes[current_process].state = PROC_READY;
     }
 

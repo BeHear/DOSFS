@@ -45,13 +45,21 @@ int acpi_init(void) {
     // Use conservative bounds to avoid page faults
     uint32_t rsdp_addr = 0;
 
-    // Check EBDA segment from BIOS data area
-    uint32_t ebda_addr = 0x40E;
-    __asm__("" : "+r"(ebda_addr));
-    volatile uint16_t* ebda_ptr = (volatile uint16_t*)ebda_addr;
-    if (*ebda_ptr) {
-        uint32_t ebda = (uint32_t)(*ebda_ptr) << 4;
-        rsdp_addr = find_rsdp_in_range(ebda, 0x400);
+    // Check EBDA segment from BIOS data area at physical 0x40E
+    {
+        uint16_t ebda_seg = 0;
+        // Use inline asm to read from absolute address without compiler warnings
+        asm volatile("mov %1, %%esi; lodsw; mov %%ax, %0"
+            : "=r"(ebda_seg)
+            : "r"((uint32_t)0x40E)
+            : "esi", "ax", "memory");
+        if (ebda_seg != 0) {
+            uint32_t ebda_addr_val = (uint32_t)ebda_seg << 4;
+            // EBDA is typically between 0x80000-0x9FFFF (within identity-mapped region)
+            if (ebda_addr_val >= 0x80000 && ebda_addr_val <= 0x9F000) {
+                rsdp_addr = find_rsdp_in_range(ebda_addr_val, 0x400);
+            }
+        }
     }
 
     // Scan BIOS ROM area

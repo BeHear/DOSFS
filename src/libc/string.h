@@ -16,5 +16,6 @@ char* strcat(char* dest, const char* src);
 char* itoa(int value, char* buf, int base);
 char* uitoa(uint32_t value, char* buf, int base);
 int   atoi(const char* s);
+int   snprintf(char* buf, size_t n, const char* fmt, ...);
 
 #endif

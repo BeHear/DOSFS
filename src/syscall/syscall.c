@@ -22,6 +22,7 @@ static void sys_write(stack_state_t* state) {
     for (uint32_t i = 0; i < len; i++) {
         vga_putchar(buf[i]);
     }
+    state->eax = len;
 }
 
 static void sys_read(stack_state_t* state) {

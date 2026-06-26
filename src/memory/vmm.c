@@ -58,7 +58,7 @@ void vmm_init(void) {
         kernel_directory[i].table   = (uint32_t)table >> 12;
     }
 
-    // Map BIOS ROM area (0xFFF00000-0xFFFFFFFF) for ACPI tables
+    // Map top 4MB (0xFFC00000-0xFFFFFFFF) identity-mapped for BIOS/ACPI/MMIO access
     {
         uint32_t dir_idx = 0xFFC00000 >> 22;
         page_table_entry_t* table = (page_table_entry_t*)pmm_alloc_page();

@@ -175,21 +175,95 @@ int fat16_read_file(const char* name, void* buf, uint32_t max_size) {
     return (int)bytes_read;
 }
 
-int fat16_write_file(const char* name, const void* data, uint32_t size) {
-    UNUSED(data);
-    if (!fs.mounted) return -1;
+static int fat16_allocate_cluster(void) {
+    // Scan FAT for a free cluster
+    uint32_t total_fat_sectors = fs.bpb.fat_size_16;
+    uint32_t entries_per_sector = 512 / 2;
+    uint32_t total_clusters = fs.total_clusters;
 
-    // Check if file exists
-    for (int i = 0; i < fs.file_count; i++) {
-        if (fs.files[i].used && strcasecmp(fs.files[i].name, name) == 0) {
-            // For simplicity, we just update the entry
-            // A full implementation would allocate clusters in the FAT
-            fs.files[i].size = size;
-            return (int)size;
+    for (uint32_t sector_idx = 0; sector_idx < total_fat_sectors; sector_idx++) {
+        uint8_t sector[512];
+        if (ata_read_sectors(fs.fat_start + sector_idx, 1, sector) != 0) continue;
+
+        for (uint32_t i = 0; i < entries_per_sector; i++) {
+            uint32_t cluster = sector_idx * entries_per_sector + i;
+            if (cluster < 2 || cluster >= 2 + total_clusters) continue;
+
+            uint16_t val = *(uint16_t*)&sector[i * 2];
+            if (val == 0x0000) {
+                // Mark as EOF (0xFFFF)
+                *(uint16_t*)&sector[i * 2] = 0xFFFF;
+                if (ata_write_sectors(fs.fat_start + sector_idx, 1, sector) != 0) return 0;
+                return (int)cluster;
+            }
         }
     }
+    return 0; // No free clusters
+}
 
-    // Create new entry in root directory
+static int fat16_write_cluster(uint32_t cluster, const uint8_t* data, uint32_t size) {
+    uint32_t sector = fs.data_start + (cluster - 2) * fs.bpb.sectors_per_cluster;
+    uint32_t cluster_size = fs.bpb.sectors_per_cluster * 512;
+    uint32_t to_write = size < cluster_size ? size : cluster_size;
+
+    uint8_t buf[512];
+    uint32_t offset = 0;
+    for (uint32_t s = 0; s < fs.bpb.sectors_per_cluster && offset < to_write; s++) {
+        uint32_t chunk = (to_write - offset) < 512 ? (to_write - offset) : 512;
+        memcpy(buf, data + offset, chunk);
+        if (chunk < 512) memset(buf + chunk, 0, 512 - chunk);
+        if (ata_write_sectors(sector + s, 1, buf) != 0) return -1;
+        offset += chunk;
+    }
+    return (int)to_write;
+}
+
+int fat16_write_file(const char* name, const void* data, uint32_t size) {
+    if (!fs.mounted) return -1;
+
+    // Check if file exists — for simplicity, delete and recreate
+    fat16_delete_file(name);
+
+    // Allocate first cluster
+    uint32_t cluster_size = fs.bpb.sectors_per_cluster * 512;
+    uint32_t needed_clusters = (size + cluster_size - 1) / cluster_size;
+    if (needed_clusters == 0) needed_clusters = 1;
+
+    int first_cluster = fat16_allocate_cluster();
+    if (first_cluster < 2) {
+        // Create empty entry if no clusters available
+        first_cluster = 0;
+    }
+
+    // Write data to clusters
+    int prev_cluster = first_cluster;
+    uint32_t remaining = size;
+    const uint8_t* ptr = (const uint8_t*)data;
+
+    for (uint32_t c = 0; c < needed_clusters; c++) {
+        int cur_cluster = (c == 0) ? first_cluster : fat16_allocate_cluster();
+        if (cur_cluster < 2) break;
+
+        if (c > 0 && prev_cluster >= 2) {
+            // Link previous cluster to current
+            uint32_t fat_offset = prev_cluster * 2;
+            uint32_t fat_sector = fs.fat_start + (fat_offset / 512);
+            uint32_t ent_offset = fat_offset % 512;
+            uint8_t fat_sec[512];
+            if (ata_read_sectors(fat_sector, 1, fat_sec) == 0) {
+                *(uint16_t*)&fat_sec[ent_offset] = (uint16_t)cur_cluster;
+                ata_write_sectors(fat_sector, 1, fat_sec);
+            }
+        }
+
+        uint32_t to_write = remaining < cluster_size ? remaining : cluster_size;
+        fat16_write_cluster((uint32_t)cur_cluster, ptr, to_write);
+        ptr += to_write;
+        remaining -= to_write;
+        prev_cluster = cur_cluster;
+    }
+
+    // Create entry in root directory
     uint8_t sector[512];
     uint32_t root_size = fs.bpb.root_entries * 32;
     uint32_t root_sectors = (root_size + 511) / 512;
@@ -205,10 +279,10 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
 
             if (entry->name[0] == 0x00 || entry->name[0] == 0xE5) {
                 memcpy(entry->name, parsed_name, 11);
-                entry->attr = 0x20; // Archive
+                entry->attr = 0x20;
                 entry->file_size = size;
-                entry->first_cluster = 0; // Empty file
-                entry->first_cluster_high = 0;
+                entry->first_cluster = (uint16_t)(first_cluster & 0xFFFF);
+                entry->first_cluster_high = (uint16_t)((first_cluster >> 16) & 0xFFFF);
 
                 if (ata_write_sectors(fs.root_start + s, 1, sector) != 0) return -1;
 
@@ -217,7 +291,7 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
                     strncpy(file->name, name, 12);
                     file->name[12] = '\0';
                     file->size = size;
-                    file->first_cluster = 0;
+                    file->first_cluster = (uint32_t)first_cluster;
                     file->attr = 0x20;
                     file->used = 1;
                     fs.file_count++;

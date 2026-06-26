@@ -175,3 +175,49 @@ int atoi(const char* s) {
 
     return res * sign;
 }
+
+int snprintf(char* buf, size_t n, const char* fmt, ...) {
+    if (n == 0) return 0;
+    __builtin_va_list args;
+    __builtin_va_start(args, fmt);
+    size_t pos = 0;
+    while (*fmt && pos < n - 1) {
+        if (*fmt == '%') {
+            fmt++;
+            if (*fmt == 'd') {
+                int val = __builtin_va_arg(args, int);
+                char tmp[16];
+                itoa(val, tmp, 10);
+                for (char* p = tmp; *p && pos < n - 1; p++) buf[pos++] = *p;
+            } else if (*fmt == 'u') {
+                unsigned int val = __builtin_va_arg(args, unsigned int);
+                char tmp[16];
+                uitoa(val, tmp, 10);
+                for (char* p = tmp; *p && pos < n - 1; p++) buf[pos++] = *p;
+            } else if (*fmt == 'x') {
+                unsigned int val = __builtin_va_arg(args, unsigned int);
+                char tmp[16];
+                uitoa(val, tmp, 16);
+                for (char* p = tmp; *p && pos < n - 1; p++) buf[pos++] = *p;
+            } else if (*fmt == 's') {
+                const char* s = __builtin_va_arg(args, const char*);
+                if (!s) s = "(null)";
+                for (; *s && pos < n - 1; s++) buf[pos++] = *s;
+            } else if (*fmt == 'c') {
+                char c = (char)__builtin_va_arg(args, int);
+                buf[pos++] = c;
+            } else if (*fmt == '%') {
+                buf[pos++] = '%';
+            } else {
+                buf[pos++] = '%';
+                if (pos < n - 1) buf[pos++] = *fmt;
+            }
+        } else {
+            buf[pos++] = *fmt;
+        }
+        fmt++;
+    }
+    __builtin_va_end(args);
+    buf[pos] = '\0';
+    return (int)pos;
+}
